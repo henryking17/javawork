@@ -24,6 +24,10 @@ if (hamburger && navUl) {
     });
 }
 
+// Stripe initialization
+const stripe = Stripe('pk_test_YOUR_STRIPE_TEST_PUBLISHABLE_KEY'); // Replace with your test publishable key
+const elements = stripe.elements();
+
 // Enhanced contact form validation and submission
 const contactForm = document.getElementById('contact-form');
 const submitBtn = document.getElementById('submit-btn');
@@ -379,41 +383,55 @@ function closeCart() {
     document.getElementById('cart-modal').style.display = 'none';
 }
 
-function checkout() {
+function initiateCardPayment() {
+    if (Object.keys(cart).length === 0) {
+        alert('Your cart is empty! Add items before paying.');
+    } else {
+        showCart();
+        // Trigger checkout after a short delay to ensure modal is open
+        setTimeout(() => {
+            checkout();
+        }, 100);
+    }
+}
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty!');
     } else {
         const totalText = document.getElementById('cart-total').textContent;
         const totalAmount = parseInt(totalText.replace('Total: ₦', '').replace(',', ''));
         
-        // Clear previous button
-        document.getElementById('paypal-button-container').innerHTML = '';
+        // Clear previous content
+        const container = document.getElementById('card-form-container');
+        container.innerHTML = '<h3>Enter Card Details</h3>';
         
-        // Render PayPal button
-        paypal.Buttons({
-            createOrder: function(data, actions) {
-                return actions.order.create({
-                    purchase_units: [{
-                        amount: {
-                            value: totalAmount.toString(),
-                            currency_code: 'NGN'
-                        }
-                    }]
-                });
-            },
-            onApprove: function(data, actions) {
-                return actions.order.capture().then(function(details) {
-                    alert('Thank you for your purchase! Transaction completed.');
-                    cart = {};
-                    localStorage.setItem('cart', JSON.stringify(cart));
-                    updateCartCount();
-                    closeCart();
-                });
-            },
-            onError: function(err) {
-                alert('Payment failed. Please try again.');
+        // Create card element
+        const card = elements.create('card');
+        card.mount('#card-form-container');
+        
+        // Add submit button
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'btn';
+        submitBtn.textContent = 'Pay ₦' + totalAmount.toLocaleString();
+        submitBtn.style.marginTop = '1rem';
+        submitBtn.addEventListener('click', async () => {
+            const {error, paymentMethod} = await stripe.createPaymentMethod({
+                type: 'card',
+                card: card,
+            });
+            
+            if (error) {
+                alert(error.message);
+            } else {
+                // For demo purposes, simulate success
+                alert('Payment successful! Thank you for your purchase.');
+                cart = {};
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateCartCount();
+                closeCart();
             }
-        }).render('#paypal-button-container');
+        });
+        
+        container.appendChild(submitBtn);
     }
 }
 

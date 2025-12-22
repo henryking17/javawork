@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cympet and Co. Enterprises - Electronics Shop</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1><span class="logo-icon">⚡</span> Cympet and Co. Enterprises</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#products">Products</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search products...">
+                <button id="search-btn">Search</button>
+            </div>
+            <div class="cart-icon" onclick="showCart()">
+                🛒 <span id="cart-count">0</span>
+            </div>
+        </div>
+    </header>
+
+    <section id="home" class="hero">
+        <div class="container">
+            <h2>Welcome to Cympet and Co. Enterprises</h2>
+            <p>Discover the latest in electronics technology. From cutting-edge gadgets to essential accessories, we have everything you need.</p>
+            <a href="#products" class="btn">Explore Products</a>
+        </div>
+    </section>
+
+    <section id="products" class="products">
+        <div class="container">
+            <h2>Featured Products</h2>
+            <div class="product-grid">
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.weqyumFL6zy9KUhaA8FVuQHaHa?w=164&h=180&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Air Conditioners</h3>
+                    <p>Inverter and non-inverter AC units</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://www.bing.com/th/id/OIP.388XH-VhQEqoNURALL__qAHaMI?w=160&h=211&c=8&rs=1&qlt=90&o=6&cb=ucfimg1&pid=3.1&rm=2&ucfimg=1" alt="">
+                    </div>
+                    <h3>Blenders</h3>
+                    <p>Powerful blenders for your kitchen needs</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                       <img src="https://th.bing.com/th/id/OIP.P813Fe5maQjXKGWnCM7ZbwHaHa?w=182&h=182&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Ceiling Fans</h3>
+                    <p>Efficient ceiling fans for cooling</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                       <img src="https://th.bing.com/th/id/OIP.Vu6A_naVtomLbFjp4sqGIAAAAA?w=170&h=180&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+
+                    </div>
+                    <h3>Elepaq Constant Generators</h3>
+                    <p>Portable power generator for emergencies</p>
+                
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="data:image/webp;base64,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" alt="">
+                    </div>
+                    <h3>Freezer</h3>
+                    <p>High-performance freezer for your needs</p>
+                    
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                       <img src="data:image/webp;base64,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" alt="">
+                    </div>
+                    <h3>Home Theatre</h3>
+                    <p>Complete home entertainment systems</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.aV9xVf1Bd2cxWtMsCWAnOgHaHa?w=196&h=196&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Microphones</h3>
+                    <p>Professional microphones for recording</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                       <img src="https://th.bing.com/th/id/OIP.OR4v9AExTZxx2nAPrVKaWgHaHa?w=188&h=188&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Rechargeable Standing Fans</h3>
+                    <p>Battery-powered standing fans</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.Bi2GutBeEfZDYgfRy3h6FwHaHa?w=201&h=200&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="fridge">
+                    </div>
+                    <h3>Refrigerator</h3>
+                    <p>Super cooling Refrigerators at your disposal</p>
+            
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.UR2WAcsfBD5_xyTpsCGiOwHaHa?w=210&h=211&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Standing Fans</h3>
+                    <p>Portable standing fans for comfort</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.t4ynl7LinwNsnSLiQV7bGAHaGy?w=198&h=181&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="Stabilizers">
+                    </div>
+                    <h3>Stabilizers</h3>
+                    <p>Solid stabilizer for your electronics</p>
+                    
+                    <button class="btn">Add to Cart</button>
+
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.BeS8Pc85iq7toWbo4QrYsQHaHa?w=169&h=180&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="sumec firman generator">
+
+                    </div>
+                    <h3>Sumec Firman Generators</h3>
+                    <p>Portable power generator for emergencies</p>
+                
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.eV81k98M89KR3KLPgE08SQHaHa?w=182&h=182&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                    </div>
+                    <h3>Wall Fans</h3>
+                    <p>Wall-mounted fans for efficient cooling</p>
+                    <button class="btn">Add to Cart</button>
+                </div>
+
+        </div>
+
+    </section>
+
+    <section id="about" class="about">
+        <div class="container">
+            <h2>About Us</h2>
+            <p>Cympet and Co. Enterprises has been a trusted name in electronics since 2010. We pride ourselves on offering quality products, exceptional customer service, and the latest technology trends.</p>
+        </div>
+    </section>
+
+    <section id="contact" class="contact">
+        <div class="container">
+            <h2>Contact Us</h2>
+            <div class="contact-content">
+                <div class="contact-info">
+                    <h3>Get in Touch</h3>
+                    <p>Have questions about our products or need assistance? We're here to help!</p>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <strong>📍 Address:</strong><br>
+                            No 52, Shogbamu Street Baale Bus-stop<br>
+                            Lagos State, Nigeria
+                        </div>
+                        <div class="contact-item">
+                            <strong>📞 Phone:</strong><br>
+                            +234 803 309 0515<br>
+                        </div>
+                        <div class="contact-item">
+                            <strong>✉️ Email:</strong><br>
+                            cyprainoleru4@gmail.com
+                        </div>
+                        <div class="contact-item">
+                            <strong>🕒 Hours:</strong><br>
+                            Mon-Fri: 9AM-7PM<br>
+                            Sat: 9AM-7PM<br>
+                            Sun: Closed
+                        </div>
+                    </div>
+                </div>
+                <div class="contact-form">
+                    <h3>Send us a Message</h3>
+                    <form id="contact-form">
+                        <div class="form-group">
+                            <input type="text" id="name" name="name" placeholder="Your Full Name" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="email" id="email" name="email" placeholder="Your Email Address" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="tel" id="phone" name="phone" placeholder="Your Phone Number">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="subject" name="subject" placeholder="Subject" required>
+                        </div>
+                        <div class="form-group">
+                            <textarea id="message" name="message" placeholder="Your Message" rows="5" required></textarea>
+                        </div>
+                        <button type="submit" class="btn" id="submit-btn">Send Message</button>
+                        <div id="form-status"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Cympet and Co. Enterprises. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div id="product-details" style="display: none;">
+                <div class="modal-image">
+                    <img id="modal-image" src="" alt="Product Image">
+                </div>
+                <p id="modal-description"></p>
+                <button class="btn" onclick="showVariants()">View Options</button>
+            </div>
+            <div id="modal-variants" class="variants-list">
+                <!-- Variants will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <div id="cart-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCart()">&times;</span>
+            <h2>Your Cart</h2>
+            <div id="cart-items">
+                <!-- Cart items will be populated here -->
+            </div>
+            <div id="cart-total">Total: ₦0</div>
+            <button class="btn" onclick="checkout()">Checkout</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

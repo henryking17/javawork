@@ -499,6 +499,56 @@ nav ul li a:hover {
     resize: vertical;
 }
 
+/* Payment section */
+.payment {
+    background: #f8f9fa;
+    padding: 4rem 0;
+    text-align: center;
+}
+
+.payment h2 {
+    margin-bottom: 1rem;
+    color: #dc143c;
+}
+
+.payment p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    color: #666;
+}
+
+.payment-methods {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.payment-method {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    min-width: 200px;
+}
+
+.payment-method:hover {
+    transform: translateY(-5px);
+}
+
+.payment-method img {
+    max-width: 100px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+.payment-method p {
+    margin: 0;
+    font-weight: bold;
+    color: #333;
+}
+
 /* Footer */
 footer {
     background: #333;
@@ -717,5 +767,14 @@ footer {
     
     .hero p {
         font-size: 1rem;
+    }
+    
+    .payment-methods {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .payment-method {
+        min-width: 150px;
     }
 }

@@ -383,11 +383,37 @@ function checkout() {
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty!');
     } else {
-        alert('Thank you for your purchase! Total: ' + document.getElementById('cart-total').textContent);
-        cart = {};
-        localStorage.setItem('cart', JSON.stringify(cart));
-        updateCartCount();
-        closeCart();
+        const totalText = document.getElementById('cart-total').textContent;
+        const totalAmount = parseInt(totalText.replace('Total: ₦', '').replace(',', ''));
+        
+        // Clear previous button
+        document.getElementById('paypal-button-container').innerHTML = '';
+        
+        // Render PayPal button
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: totalAmount.toString(),
+                            currency_code: 'NGN'
+                        }
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                return actions.order.capture().then(function(details) {
+                    alert('Thank you for your purchase! Transaction completed.');
+                    cart = {};
+                    localStorage.setItem('cart', JSON.stringify(cart));
+                    updateCartCount();
+                    closeCart();
+                });
+            },
+            onError: function(err) {
+                alert('Payment failed. Please try again.');
+            }
+        }).render('#paypal-button-container');
     }
 }
 

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cympet and Co. Enterprises - Electronics Shop</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=NGN"></script>
 </head>
 <body>
     <header>
@@ -234,6 +235,31 @@
         </div>
     </section>
 
+    <section id="payment" class="payment">
+        <div class="container">
+            <h2>Payment Options</h2>
+            <p>We accept secure payments through various methods to ensure your shopping experience is safe and convenient.</p>
+            <div class="payment-methods">
+                <div class="payment-method">
+                    <img src="https://www.paypalobjects.com/webstatic/en_US/i/buttons/PP_logo_h_100x26.png" alt="PayPal">
+                    <p>PayPal - Secure online payments</p>
+                </div>
+                <div class="payment-method">
+                    <img src="https://www.visa.com/images/visa-logo.png" alt="Visa" style="height: 40px;">
+                    <p>Visa Credit/Debit Cards</p>
+                </div>
+                <div class="payment-method">
+                    <img src="https://www.mastercard.com/content/dam/public/enterprise/resources/images/logo/mc-logo-52.png" alt="Mastercard" style="height: 40px;">
+                    <p>Mastercard Credit/Debit Cards</p>
+                </div>
+                <div class="payment-method">
+                    <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #28a745;"></i>
+                    <p>Cash on Delivery</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <footer>
         <div class="container">
             <p>&copy; 2025 Cympet and Co. Enterprises. All rights reserved.</p>
@@ -265,7 +291,7 @@
                 <!-- Cart items will be populated here -->
             </div>
             <div id="cart-total">Total: ₦0</div>
-            <button class="btn" onclick="checkout()">Checkout</button>
+            <div id="paypal-button-container"></div>
         </div>
     </div>
 

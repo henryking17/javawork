@@ -446,6 +446,155 @@ function checkout() {
     handler.openIframe();
 }
 
+function initiateCashOnDelivery() {
+    if (Object.keys(cart).length === 0) {
+        alert('Your cart is empty! Add items before placing an order.');
+        return;
+    }
+    showDeliveryModal();
+}
+
+function showDeliveryModal() {
+    const deliveryCartItems = document.getElementById('delivery-cart-items');
+    deliveryCartItems.innerHTML = '';
+    let total = 0;
+
+    if (Object.keys(cart).length === 0) {
+        deliveryCartItems.innerHTML = '<p>Your cart is empty.</p>';
+    } else {
+        for (const productName in cart) {
+            // Find product details
+            let productDetails = null;
+            for (const category in productVariants) {
+                productVariants[category].forEach(variant => {
+                    if (variant.name === productName) {
+                        productDetails = variant;
+                    }
+                });
+            }
+
+            if (productDetails) {
+                const quantity = cart[productName];
+                const itemTotal = parseInt(productDetails.price.replace('₦', '').replace(',', '')) * quantity;
+                total += itemTotal;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'delivery-cart-item';
+                itemDiv.innerHTML = `
+                    <div class="delivery-item-details">
+                        <h4>${productDetails.name}</h4>
+                        <p>${productDetails.description}</p>
+                        <span class="delivery-item-price">${productDetails.price} x ${quantity} = ₦${itemTotal.toLocaleString()}</span>
+                    </div>
+                `;
+                deliveryCartItems.appendChild(itemDiv);
+            }
+        }
+    }
+
+    document.getElementById('delivery-total').textContent = `Total: ₦${total.toLocaleString()}`;
+    document.getElementById('delivery-modal').style.display = 'block';
+}
+
+function closeDeliveryModal() {
+    document.getElementById('delivery-modal').style.display = 'none';
+}
+
+// Delivery form submission
+const deliveryForm = document.getElementById('delivery-form');
+const deliverySubmitBtn = document.getElementById('delivery-submit-btn');
+const deliveryStatus = document.getElementById('delivery-status');
+
+if (deliveryForm) {
+    deliveryForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Get form values
+        const name = document.getElementById('delivery-name').value.trim();
+        const phone = document.getElementById('delivery-phone').value.trim();
+        const email = document.getElementById('delivery-email').value.trim();
+        const address = document.getElementById('delivery-address').value.trim();
+        const city = document.getElementById('delivery-city').value.trim();
+        const notes = document.getElementById('delivery-notes').value.trim();
+
+        // Validation
+        if (!name || !phone || !address || !city) {
+            showDeliveryStatus('Please fill in all required fields.', 'error');
+            return;
+        }
+
+        if (!isValidPhone(phone)) {
+            showDeliveryStatus('Please enter a valid phone number.', 'error');
+            return;
+        }
+
+        if (email && !isValidEmail(email)) {
+            showDeliveryStatus('Please enter a valid email address.', 'error');
+            return;
+        }
+
+        // Show loading state
+        deliverySubmitBtn.disabled = true;
+        deliverySubmitBtn.textContent = 'Processing Order...';
+
+        // Simulate order processing (in a real website, this would send to a server)
+        setTimeout(() => {
+            // Store delivery data in localStorage for demo purposes
+            const deliveryData = {
+                name,
+                phone,
+                email,
+                address,
+                city,
+                notes,
+                cart: {...cart},
+                total: document.getElementById('delivery-total').textContent,
+                timestamp: new Date().toISOString(),
+                orderId: 'COD_' + Math.floor((Math.random() * 1000000) + 1)
+            };
+
+            let orders = JSON.parse(localStorage.getItem('cash_orders')) || [];
+            orders.push(deliveryData);
+            localStorage.setItem('cash_orders', JSON.stringify(orders));
+
+            // Clear cart
+            cart = {};
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+
+            // Reset form
+            deliveryForm.reset();
+
+            // Show success message
+            showDeliveryStatus(`Order placed successfully! Your order ID is ${deliveryData.orderId}. We will contact you at ${phone} for delivery arrangements.`, 'success');
+
+            // Reset button
+            deliverySubmitBtn.disabled = false;
+            deliverySubmitBtn.textContent = 'Confirm Order';
+
+            // Close modal after a delay
+            setTimeout(() => {
+                closeDeliveryModal();
+            }, 3000);
+
+            console.log('Cash on Delivery order submitted:', deliveryData);
+        }, 2000); // Simulate 2 second delay
+    });
+}
+
+function showDeliveryStatus(message, type) {
+    deliveryStatus.textContent = message;
+    deliveryStatus.className = type;
+    deliveryStatus.style.display = 'block';
+
+    // Hide after 5 seconds for errors, keep success visible
+    if (type === 'error') {
+        setTimeout(() => {
+            deliveryStatus.style.display = 'none';
+        }, 5000);
+    }
+}
+
 closeBtn.addEventListener('click', function() {
     modal.style.display = 'none';
     // Reset modal state
@@ -459,6 +608,9 @@ window.addEventListener('click', function(e) {
         // Reset modal state
         document.getElementById('product-details').style.display = 'none';
         document.getElementById('modal-variants').style.display = 'block';
+    }
+    if (e.target === document.getElementById('delivery-modal')) {
+        closeDeliveryModal();
     }
 });
 

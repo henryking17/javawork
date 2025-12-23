@@ -238,17 +238,13 @@
     <section id="payment" class="payment">
         <div class="container">
             <h2>Payment Options</h2>
-            <p>We accept secure payments through Paystack for Visa and Mastercard cards to ensure your shopping experience is safe and convenient.</p>
+            <p>We accept secure payments through Paystack to ensure your shopping experience is safe and convenient.</p>
             <div class="payment-methods">
                 <div class="payment-method" onclick="initiateCardPayment()">
-                    <img src="https://www.visa.com/images/visa-logo.png" alt="Visa" style="height: 40px;">
-                    <p>Visa Credit/Debit Cards</p>
+                    <img src="paystack-placeholder.svg" alt="Paystack" style="height: 40px;">
+                    <p>Pay with Paystack</p>
                 </div>
-                <div class="payment-method" onclick="initiateCardPayment()">
-                    <img src="https://www.mastercard.com/content/dam/public/enterprise/resources/images/logo/mc-logo-52.png" alt="Mastercard" style="height: 40px;">
-                    <p>Mastercard Credit/Debit Cards</p>
-                </div>
-                <div class="payment-method">
+                <div class="payment-method" onclick="initiateCashOnDelivery()">
                     <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #28a745;"></i>
                     <p>Cash on Delivery</p>
                 </div>
@@ -288,6 +284,49 @@
             </div>
             <div id="cart-total">Total: ₦0</div>
             <div id="paypal-button-container"></div>
+        </div>
+    </div>
+
+    <div id="delivery-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDeliveryModal()">&times;</span>
+            <h2>Cash on Delivery - Delivery Details</h2>
+            <p>Please provide your delivery information. Payment will be collected upon delivery.</p>
+            <form id="delivery-form">
+                <div class="form-group">
+                    <label for="delivery-name">Full Name *</label>
+                    <input type="text" id="delivery-name" name="name" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="delivery-phone">Phone Number *</label>
+                    <input type="tel" id="delivery-phone" name="phone" placeholder="Enter your phone number" required>
+                </div>
+                <div class="form-group">
+                    <label for="delivery-email">Email Address</label>
+                    <input type="email" id="delivery-email" name="email" placeholder="Enter your email address">
+                </div>
+                <div class="form-group">
+                    <label for="delivery-address">Delivery Address *</label>
+                    <textarea id="delivery-address" name="address" placeholder="Enter your complete delivery address" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="delivery-city">City/State *</label>
+                    <input type="text" id="delivery-city" name="city" placeholder="Enter city and state" required>
+                </div>
+                <div class="form-group">
+                    <label for="delivery-notes">Additional Notes</label>
+                    <textarea id="delivery-notes" name="notes" placeholder="Any special delivery instructions" rows="2"></textarea>
+                </div>
+                <div class="delivery-summary">
+                    <h3>Order Summary</h3>
+                    <div id="delivery-cart-items">
+                        <!-- Cart items will be populated here -->
+                    </div>
+                    <div id="delivery-total">Total: ₦0</div>
+                </div>
+                <button type="submit" class="btn" id="delivery-submit-btn">Confirm Order</button>
+                <div id="delivery-status"></div>
+            </form>
         </div>
     </div>
 

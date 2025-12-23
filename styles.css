@@ -41,8 +41,16 @@ header .container {
     position: relative;
     padding: 10px 20px;
     background: white;
-    border-radius: 5px;
+    border-radius: 50px;
     color: #dc143c;
+    box-shadow:
+        0 0 10px rgba(220, 20, 60, 0.8),
+        0 0 20px rgba(220, 20, 60, 0.6),
+        0 0 30px rgba(220, 20, 60, 0.5),
+        0 0 40px rgba(220, 20, 60, 0.4),
+        0 0 50px rgba(220, 20, 60, 0.3);
+    border: none;
+    outline-color: #721c24;
 }
 
 .logo-icon {

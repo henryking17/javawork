@@ -24,9 +24,8 @@ if (hamburger && navUl) {
     });
 }
 
-// Stripe initialization
-const stripe = Stripe('pk_test_YOUR_STRIPE_TEST_PUBLISHABLE_KEY'); // Replace with your test publishable key
-const elements = stripe.elements();
+// Paystack initialization
+const paystackPublicKey = 'pk_test_593e1983178a6edb96ece69a294b43f33ac1c1f6'; // Replace with your Paystack test public key
 
 // Enhanced contact form validation and submission
 const contactForm = document.getElementById('contact-form');
@@ -394,45 +393,57 @@ function initiateCardPayment() {
         }, 100);
     }
 }
+
+function checkout() {
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty!');
-    } else {
-        const totalText = document.getElementById('cart-total').textContent;
-        const totalAmount = parseInt(totalText.replace('Total: ₦', '').replace(',', ''));
-        
-        // Clear previous content
-        const container = document.getElementById('card-form-container');
-        container.innerHTML = '<h3>Enter Card Details</h3>';
-        
-        // Create card element
-        const card = elements.create('card');
-        card.mount('#card-form-container');
-        
-        // Add submit button
-        const submitBtn = document.createElement('button');
-        submitBtn.className = 'btn';
-        submitBtn.textContent = 'Pay ₦' + totalAmount.toLocaleString();
-        submitBtn.style.marginTop = '1rem';
-        submitBtn.addEventListener('click', async () => {
-            const {error, paymentMethod} = await stripe.createPaymentMethod({
-                type: 'card',
-                card: card,
-            });
-            
-            if (error) {
-                alert(error.message);
-            } else {
-                // For demo purposes, simulate success
-                alert('Payment successful! Thank you for your purchase.');
-                cart = {};
-                localStorage.setItem('cart', JSON.stringify(cart));
-                updateCartCount();
-                closeCart();
-            }
-        });
-        
-        container.appendChild(submitBtn);
+        return;
     }
+
+    // Calculate total amount in kobo (Paystack uses kobo for Naira)
+    let total = 0;
+    for (const productName in cart) {
+        // Find product details
+        let productDetails = null;
+        for (const category in productVariants) {
+            productVariants[category].forEach(variant => {
+                if (variant.name === productName) {
+                    productDetails = variant;
+                }
+            });
+        }
+        
+        if (productDetails) {
+            const quantity = cart[productName];
+            const itemTotal = parseInt(productDetails.price.replace('₦', '').replace(',', '')) * quantity;
+            total += itemTotal;
+        }
+    }
+
+    // Convert to kobo (multiply by 100)
+    const amountInKobo = total * 100;
+
+    // Paystack payment setup
+    const handler = PaystackPop.setup({
+        key: paystackPublicKey, // Replace with your public key
+        email: 'customer@example.com', // You might want to collect customer email
+        amount: amountInKobo,
+        currency: 'NGN',
+        ref: 'PS_' + Math.floor((Math.random() * 1000000000) + 1), // generates a pseudo-unique reference
+        callback: function(response) {
+            // Payment successful
+            alert('Payment successful! Reference: ' + response.reference);
+            // Clear cart
+            cart = {};
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            closeCart();
+        },
+        onClose: function() {
+            alert('Payment cancelled.');
+        }
+    });
+    handler.openIframe();
 }
 
 closeBtn.addEventListener('click', function() {

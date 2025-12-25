@@ -27,6 +27,9 @@ if (hamburger && navUl) {
 // Paystack initialization
 const paystackPublicKey = 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1'; // Replace with your Paystack test public key
 
+
+
+
 // Enhanced contact form validation and submission
 const contactForm = document.getElementById('contact-form');
 const submitBtn = document.getElementById('submit-btn');
@@ -394,38 +397,14 @@ function initiateCardPayment() {
     }
 }
 
-function checkout() {
-    if (Object.keys(cart).length === 0) {
-        alert('Your cart is empty!');
-        return;
-    }
-
-    // Calculate total amount in kobo (Paystack uses kobo for Naira)
-    let total = 0;
-    for (const productName in cart) {
-        // Find product details
-        let productDetails = null;
-        for (const category in productVariants) {
-            productVariants[category].forEach(variant => {
-                if (variant.name === productName) {
-                    productDetails = variant;
-                }
-            });
-        }
-        
-        if (productDetails) {
-            const quantity = cart[productName];
-            const itemTotal = parseInt(productDetails.price.replace('₦', '').replace(',', '')) * quantity;
-            total += itemTotal;
-        }
-    }
+function checkout() { let total = 0; for (const productName in cart) { let productDetails = null; for (const category in productVariants) { productVariants[category].forEach(variant => { if (variant.name === productName) { productDetails = variant; } }); } if (productDetails) { const quantity = cart[productName]; const itemTotal = parseInt(productDetails.price.replace('₦', '').replace(',', '')) * quantity; total += itemTotal; } }
 
     // Convert to kobo (multiply by 100)
     const amountInKobo = total * 100;
 
     // Paystack payment setup
     const handler = PaystackPop.setup({
-        key: paystackPublicKey, // Replace with your public key
+        key: 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1', // Replace with your public key
         email: 'customer@example.com', // You might want to collect customer email
         amount: amountInKobo,
         currency: 'NGN',

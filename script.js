@@ -25,7 +25,7 @@ if (hamburger && navUl) {
 }
 
 // Paystack initialization
-const paystackPublicKey = 'pk_test_593e1983178a6edb96ece69a294b43f33ac1c1f6'; // Replace with your Paystack test public key
+const paystackPublicKey = 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1'; // Replace with your Paystack test public key
 
 // Enhanced contact form validation and submission
 const contactForm = document.getElementById('contact-form');

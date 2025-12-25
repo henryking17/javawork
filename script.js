@@ -14,6 +14,31 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
+fetch("https://your-app-name.onrender.com/create-recipient", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: "cympet and co nigeria enterprises",
+    account_number: "8170779071",
+    bank_code: "FIDELITY BANK" // GTBank example
+  })
+})
+.then(res => res.json())
+.then(data => {
+  console.log("Recipient created:", data);
+  alert(`Bank: ${data.data.details.bank_name}, Account: ${data.data.details.account_number}`);
+});
+
+
+
+
+
+
+
+
+
+
+
 // Hamburger menu toggle
 const hamburger = document.getElementById('hamburger');
 const navUl = document.querySelector('nav ul');

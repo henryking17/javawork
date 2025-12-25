@@ -268,7 +268,7 @@ const productVariants = {
     'Home Theatre': [
         { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound system', price: '₦150,000', emoji: '🎬' },
         { name: 'LG 7.1 Home Theatre', description: 'High-end 7.1 channel system', price: '₦200,000', emoji: '🎬' },
-        { name: 'Samsung Soundbar + Subwoofer', description: 'Modern soundbar system', price: '₦100,000', emoji: '🎬' }
+        { name: 'Samsung Soundbar + Subwoofer', description: 'Modern soundbar system', price: '₦100', emoji: '🎬' }
     ]
 };
 

@@ -21,7 +21,9 @@ body {
     margin: 0 auto;
     padding: 0 20px;
 }
-
+#home .container {
+    padding-top: 120px; /* To offset fixed header */
+}
 
 
 /* Header */
@@ -191,7 +193,7 @@ nav ul li a:hover {
 
 .search-bar button {
     padding: 0.5rem 1rem;
-    background: #dc143c;
+    background: #16060a;
     color: white;
     border: none;
     border-radius: 0 4px 4px 0;

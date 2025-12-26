@@ -12,16 +12,23 @@ body {
     background-color: #ffffff;
 }
 
+
+.country-btn { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; color: var(--muted); cursor: pointer; }
+
 .container {
     max-width: 1800px;
+    max-height: fit-content;
     margin: 0 auto;
     padding: 0 20px;
 }
 
+
+
 /* Header */
 header {
-    background: #dc143c;
+    background: linear-gradient(135deg, red 0%, #702f2f 100%);
     color: white;
+    opacity: 0.9;
     padding: 0.5rem 0;
     position: fixed;
     width: 100%;

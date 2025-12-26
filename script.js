@@ -50,7 +50,7 @@ if (hamburger && navUl) {
 }
 
 // Paystack initialization
-const paystackPublicKey = 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1'; // Replace with your Paystack test public key
+const paystackPublicKey = 'pk_test_e05f3cabaa7f697676cc7cafae68018a0c66c047'; // Replace with your Paystack test public key
 
 
 
@@ -429,7 +429,7 @@ function checkout() { let total = 0; for (const productName in cart) { let produ
 
     // Paystack payment setup
     const handler = PaystackPop.setup({
-        key: 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1', // Replace with your public key
+        key: 'pk_test_e05f3cabaa7f697676cc7cafae68018a0c66c047', // Replace with your public key
         email: 'customer@example.com', // You might want to collect customer email
         amount: amountInKobo,
         currency: 'NGN',

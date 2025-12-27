@@ -31,7 +31,6 @@ header {
     background: linear-gradient(135deg, red 0%, #702f2f 100%);
     color: white;
     opacity: 0.9;
-    backdrop-filter: blur(10px);
     padding: 0.5rem 0;
     position: fixed;
     width: 100%;
@@ -268,7 +267,7 @@ nav ul li a:hover {
 
 /* Hero section */
 .hero {
-    background: linear-gradient(135deg, #dc143c 0%, #ff6b6b 100%);
+    background: linear-gradient(135deg, gold, #ff6b6b 100%);
     color: white;
     padding: 100px 0 80px;
     text-align: center;

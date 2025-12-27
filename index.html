@@ -15,11 +15,11 @@
             <img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo" width="300px" height="200px">
             <nav>
                 <ul>
-                    <li><a href="#home">Home</a></li>
-                    <li><a href="#products">Products</a></li>
-                    <li><a href="#payment">Payment</a></li>
-                    <li><a href="#about">About</a></li>
-                    <li><a href="#contact">Contact</a></li>
+                    <li><a href="#home"><b>Home</b></a></li>
+                    <li><a href="#products"><b>Products</b></a></li>
+                    <li><a href="#payment"><b>Payment</b></a></li>
+                    <li><a href="#about"><b>About</b></a></li>
+                    <li><a href="#contact"><b>Contact</b></a></li>
                     
                 </ul>
                 <button class="hamburger" id="hamburger">☰</button>
@@ -42,7 +42,7 @@
     
     <section id="home" class="hero">
         <div class="container">
-            <h2><br>Welcome to Cympet and Co. Nigeria<br>Enterprises.</h2>
+            <h2><br><b>Welcome to Cympet and Co. Nigeria Enterprises.</b></h2>
             <p>Discover the latest in electronics technology. From cutting-edge gadgets to essential accessories, we have everything you need.</p>
             <a href="#products" class="btn">Explore Products</a>
         </div>
@@ -252,12 +252,13 @@
             <p>We accept secure payments through Paystack to ensure your shopping experience is safe and convenient.</p>
             <div class="payment-methods">
                 <div class="payment-method" onclick="initiateCardPayment()">
+                   
                     <img src="paystack-placeholder.svg" alt="Paystack" style="height: 40px;">
                     <p>Pay with Paystack</p>
                 </div>
                 <div class="payment-method" onclick="initiateCashOnDelivery()">
-                    <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #28a745;"></i>
-                    <p>Cash on Delivery</p>
+                    <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #972768;"></i>
+                    <p>Home Delivery</p>
                 </div>
             </div>
         </div>
@@ -301,7 +302,7 @@
     <div id="delivery-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeDeliveryModal()">&times;</span>
-            <h2>Cash on Delivery - Delivery Details</h2>
+            <h2>Delivery Details</h2>
             <p>Please provide your delivery information. Payment will be collected upon delivery.</p>
              <form action="https://api.web3forms.com/submit" method="POST">
                            <input type="hidden" name="access_key" value="22b0c187-7f5e-48e5-91cf-d3481d9cd44f">
@@ -331,8 +332,11 @@
                 </div>
                 <div class="form-group">
                     <label for="delivery-notes">Name Of Goods Bought</label>
-                    <textarea id="delivery-notes" name="notes" placeholder="Goods bought" rows="2"></textarea>
+                    <textarea id="delivery-notes" name="notes" placeholder="Please fill in the goods bought" rows="2"></textarea>
                 </div>
+                 <div class="form-group">
+                    
+                       </div>
                 <div class="delivery-summary">
                     <h3>Order Summary</h3>
                     <div id="delivery-cart-items">
@@ -340,6 +344,7 @@
                     </div>
                     <div id="delivery-total">Total: ₦0</div>
                 </div>
+                
                 <button type="submit" class="btn" id="delivery-submit-btn">Confirm Order</button>
                 <div id="delivery-status"></div>
             </form>

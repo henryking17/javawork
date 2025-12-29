@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+    .product-card { border: 1px solid #ddd; padding: 10px; margin: 10px; }
+    .delivery-summary { border: 2px solid #333; padding: 15px; margin-top: 20px; background: #f9f9f9; }
+  </style>
+
+</head>
+<body>
+    <h1>My Shop</h1>
+  <div id="products"></div>
+
+  <!-- 🚚 Delivery Summary -->
+  <div class="delivery-summary">
+    <h3>Order Summary</h3>
+    <div id="delivery-cart-items"></div>
+    <div id="delivery-total">Total: ₦0</div>
+    <h3>Delivery Info</h3>
+    <input type="text" id="custName" placeholder="Full Name" required>
+    <input type="text" id="custAddress" placeholder="Delivery Address" required>
+    <input type="text" id="custPhone" placeholder="Phone Number" required>
+    <input type="email" id="custEmail" placeholder="Email" required>
+    <button onclick="confirmOrder()">Confirm Order</button>
+  </div>
+
+  <!-- Hidden Web3Forms form -->
+  <form id="orderForm" action="https://api.web3forms.com/submit" method="POST">
+    <input type="hidden" name="access_key" value="22b0c187-7f5e-48e5-91cf-d3481d9cd44f"> <!-- Replace with your Web3Forms key -->
+    <input type="hidden" name="subject" value="New Order Confirmation">
+    <input type="hidden" name="order" id="orderField">
+    <input type="hidden" name="delivery" id="deliveryField">
+    <input type="hidden" name="total" id="totalField">
+  </form>
+
+  <script>
+    const products = [
+      { name: "Smartphone", price: 120000 },
+      { name: "Laptop", price: 350000 },
+      { name: "Headphones", price: 15000 }
+    ];
+
+    let cart = [];
+    const productContainer = document.getElementById("products");
+    const deliveryItems = document.getElementById("delivery-cart-items");
+    const deliveryTotal = document.getElementById("delivery-total");
+
+    // Render products
+    products.forEach((product, index) => {
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML = `
+        <h3>${product.name}</h3>
+        <p>₦${product.price.toLocaleString()}</p>
+        <button onclick="addToCart(${index})">Buy</button>
+      `;
+      productContainer.appendChild(card);
+    });
+
+    // Add to cart
+    function addToCart(index) {
+      const product = products[index];
+      cart.push(product);
+      updateDeliverySummary();
+    }
+
+    // Update delivery summary
+    function updateDeliverySummary() {
+      deliveryItems.innerHTML = "";
+      let total = 0;
+
+      cart.forEach(item => {
+        const div = document.createElement("div");
+        div.textContent = `${item.name} - ₦${item.price.toLocaleString()}`;
+        deliveryItems.appendChild(div);
+        total += item.price;
+      });
+
+      deliveryTotal.textContent = `Total: ₦${total.toLocaleString()}`;
+    }
+
+    // Confirm order
+    function confirmOrder() {
+      const name = document.getElementById("custName").value;
+      const address = document.getElementById("custAddress").value;
+      const phone = document.getElementById("custPhone").value;
+      const email = document.getElementById("custEmail").value;
+
+      let orderDetails = cart.map(item => `${item.name} - ₦${item.price.toLocaleString()}`).join("\n");
+      let total = cart.reduce((sum, item) => sum + item.price, 0);
+
+      let deliverySummary = `
+Name: ${name}
+Address: ${address}
+Phone: ${phone}
+Email: ${email}
+      `;
+
+      // Fill hidden form fields
+      document.getElementById("orderField").value = orderDetails;
+      document.getElementById("deliveryField").value = deliverySummary;
+      document.getElementById("totalField").value = `₦${total.toLocaleString()}`;
+
+      // Submit form to Web3Forms
+      document.getElementById("orderForm").submit();
+      alert("✅ Order sent successfully!");
+    }
+  </script>
+
+</body>
+</html>

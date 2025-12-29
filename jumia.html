@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Shop</title>
+  <style>
+    .product-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .product-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      width: 200px;
+      text-align: center;
+    }
+    .product-card img {
+      max-width: 100%;
+      height: auto;
+    }
+    .product-card h3 {
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    .product-card p {
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Products Like Jumia</h1>
+  <div id="products" class="product-grid"></div>
+
+  <script>
+    // Step 1: Product list
+    const products = [
+      { name: "Smartphone", price: 120000, image: "phone.jpg", description: "Latest Android phone" },
+      { name: "Laptop", price: 350000, image: "laptop.jpg", description: "Powerful gaming laptop" },
+      { name: "Headphones", price: 15000, image: "headphones.jpg", description: "Noise-cancelling headphones" }
+    ];
+
+    // Step 2: Render products
+    const container = document.getElementById("products");
+
+    products.forEach(product => {
+      const card = document.createElement("div");
+      card.className = "product-card";
+
+      card.innerHTML = `
+        <img src="${product.image}" alt="${product.name}">
+        <h3>${product.name}</h3>
+        <p>₦${product.price.toLocaleString()}</p>
+        <small>${product.description}</small>
+      `;
+
+      container.appendChild(card);
+    });
+  </script>
+</body>
+</html>

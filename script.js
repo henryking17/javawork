@@ -14,25 +14,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-fetch("https://your-app-name.onrender.com/create-recipient", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    name: "cympet and co nigeria enterprises",
-    account_number: "8170779071",
-    bank_code: "FIDELITY BANK" // GTBank example
-  })
-})
-.then(res => res.json())
-.then(data => {
-  console.log("Recipient created:", data);
-  alert(`Bank: ${data.data.details.bank_name}, Account: ${data.data.details.account_number}`);
-});
-
-
-
-
-
 
 // Hamburger menu toggle
 const hamburger = document.getElementById('hamburger');
@@ -260,7 +241,7 @@ const productVariants = {
         { name: 'Quiet Wall Fan', description: 'Silent operation wall fan', price: '₦25,000', emoji: '💨' },
         { name: 'Exhaust Wall Fan', description: 'Ventilation wall fan', price: '₦35,000', emoji: '💨' }
     ],
-    'Home Theatre': [
+    'Sound Systems': [
         { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound system', price: '₦150,000', emoji: '🎬' },
         { name: 'LG 7.1 Home Theatre', description: 'High-end 7.1 channel system', price: '₦200,000', emoji: '🎬' },
         { name: 'Samsung Soundbar + Subwoofer', description: 'Modern soundbar system', price: '₦100', emoji: '🎬' }
@@ -642,3 +623,4 @@ function showVariants() {
         document.getElementById('modal-variants').style.display = 'block';
     }
 }
+ 

@@ -21,28 +21,43 @@ body {
     margin: 0 auto;
     padding: 0 20px;
 }
+/* Reduced top offset to match the shorter header */
 #home .container {
-    padding-top: 120px; /* To offset fixed header */
+    padding-top: 90px; /* previously 120px */
 }
 
 
 /* Header */
+/* Reduced vertical padding and added a min-height so the header is visually shorter */
 header {
     background: linear-gradient(135deg, red 0%, #702f2f 100%);
     color: white;
     opacity: 0.9;
-    padding: 0.5rem 0;
+    padding: 0.25rem 0; /* previously 0.5rem 0 */
     position: fixed;
     width: 100%;
     height: fit-content;
+    min-height: 64px; /* new: keeps header compact */
     top: 0;
     z-index: 1000;
 }
 
+/* Make sure the internal layout remains vertically centered with the smaller header */
 header .container {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+}
+
+/* Constrain the logo height to fit in the shorter header.
+   Using !important to override inline width/height attributes in the HTML. */
+#logo {
+    height: 56px !important;
+    max-height: 56px;
+    width: auto !important;
+    display: block;
+    object-fit: contain;
 }
 
 .logo h1 {
@@ -935,4 +950,322 @@ footer {
     .payment-method {
         min-width: 150px;
     }
+}
+/* Toast notifications — modern success / error toasts */
+
+/* Container sits in top-right */
+.toast-container {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 99999;
+  pointer-events: none; /* allow clicks to pass through except on toasts which set pointer-events:auto */
+}
+
+/* Toast base */
+.toast {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 420px;
+  background: #fff;
+  color: #111;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: 0 12px 30px rgba(10,10,20,0.12);
+  border: 1px solid rgba(15,15,15,0.04);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  transform-origin: top right;
+  transform: translateY(-6px) scale(0.98);
+  opacity: 0;
+  transition: transform 220ms cubic-bezier(.2,.9,.3,1), opacity 200ms ease;
+  overflow: hidden;
+}
+
+/* Shown state (added by JS) */
+.toast.show {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* Icon */
+.toast .icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+/* content */
+.toast .content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toast .content .title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.toast .content .message {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.25;
+}
+
+/* actions (close) */
+.toast .actions {
+  margin-left: 8px;
+  display: flex;
+  align-items: start;
+}
+
+.toast .close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(0,0,0,0.6);
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  font-size: 14px;
+}
+.toast .close-btn:hover { background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.9); }
+
+/* Success / error variants */
+.toast-success { border-left: 4px solid #16a34a; }
+.toast-success .icon { background: rgba(22,163,74,0.12); color: #16a34a; }
+.toast-error { border-left: 4px solid #dc2626; }
+.toast-error .icon { background: rgba(220,38,38,0.08); color: #dc2626; }
+
+/* subtle progress bar at bottom showing auto-dismiss */
+.toast .progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.03));
+}
+.toast .progress > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(22,163,74,0.9), rgba(22,163,74,0.6));
+  transform-origin: left;
+  transform: scaleX(1);
+  transition: transform linear;
+}
+
+/* error progress uses red */
+.toast-error .progress > span {
+  background: linear-gradient(90deg, rgba(220,38,38,0.95), rgba(220,38,38,0.6));
+}
+
+/* Accessibility: reduce motion respect */
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: none; transform: none; opacity: 1; }
+  .toast .progress > span { transition: none; }
+}
+
+/* small responsive tweak */
+@media (max-width: 480px) {
+  .toast { min-width: 88%; max-width: 92%; margin: 0 8px; }
+}
+
+/* Append or merge these styles into your styles.css to place and beautify the contact form.
+   They assume your page already contains the .contact-content grid. */
+
+.contact-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* two columns: info | form */
+  gap: 2.25rem;
+  align-items: start;
+}
+
+/* Reusable card look for both columns */
+.card {
+  background: linear-gradient(180deg, #ffffff, #fcfcfd);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 12px 30px rgba(16,24,40,0.06);
+  border: 1px solid rgba(15,23,42,0.04);
+}
+
+/* Contact info tweaks */
+.contact-info h3,
+.contact-form h3 {
+  font-size: 1.45rem;
+  margin-bottom: 8px;
+  color: #111827;
+}
+.contact-info p {
+  color: #4b5563;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.contact-details .contact-item {
+  padding: 10px 0;
+  border-top: 1px dashed rgba(15,23,42,0.04);
+}
+.contact-details .contact-item:first-child {
+  border-top: none;
+}
+.contact-details .contact-item strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111827;
+}
+.contact-details .btn.small {
+  padding: 6px 10px;
+  font-size: 0.92rem;
+  border-radius: 8px;
+}
+
+/* Form card layout */
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Input rows for two-column fields */
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Input group: icon + control */
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(15,23,42,0.06);
+  transition: box-shadow 140ms ease, border-color 140ms ease, transform 80ms ease;
+}
+.input-group:focus-within {
+  box-shadow: 0 10px 24px rgba(16,24,40,0.06);
+  border-color: rgba(220,20,60,0.18);
+  transform: translateY(-2px);
+}
+
+.input-group.full {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}
+
+/* Icon */
+.input-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(220,20,60,0.06), rgba(220,20,60,0.02));
+  color: #b91c1c;
+  flex-shrink: 0;
+}
+
+/* Inputs and textarea */
+.input-group input,
+.input-group textarea {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 0.98rem;
+  color: #0f172a;
+  background: transparent;
+  resize: vertical;
+  padding: 4px 0;
+}
+
+/* Placeholder styling */
+.input-group input::placeholder,
+.input-group textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+/* Actions */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+/* Primary button */
+.btn.primary {
+  background: linear-gradient(90deg,#dc143c,#b22222);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(220,20,60,0.12);
+  border: none;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.btn.primary:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(220,20,60,0.16); }
+
+/* Ghost button */
+.btn.ghost {
+  background: transparent;
+  border: 1px solid rgba(15,23,42,0.06);
+  color: #374151;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+/* Form status styling (success/error) */
+#form-status {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  display: none;
+  font-size: 0.95rem;
+}
+#form-status.success {
+  display: block;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid rgba(6,95,70,0.08);
+}
+#form-status.error {
+  display: block;
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid rgba(159,18,57,0.06);
+}
+
+/* Responsive: stack columns on small screens and adjust spacing */
+@media (max-width: 780px) {
+  .contact-content {
+    grid-template-columns: 1fr;
+  }
+  .input-row {
+    grid-template-columns: 1fr;
+  }
+  .form-actions {
+    justify-content: stretch;
+    flex-direction: column;
+  }
+  .btn.primary, .btn.ghost {
+    width: 100%;
+  }
 }

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Receipt</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* small overrides for standalone receipt page */
+    body { padding: 24px; background: #f6f7fb; }
+    .receipt-wrapper { max-width: 800px; margin: 0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow: 0 8px 30px rgba(16,24,40,0.06); }
+    .meta { color:#666; margin-bottom:12px; }
+    .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
+    @media print {
+      .actions, .back-link { display:none; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt-wrapper" id="receipt-root">
+    <div class="back-link" style="margin-bottom:12px;">
+      <a href="index.html" class="btn ghost">Return to shop</a>
+    </div>
+    <div id="receipt-container">
+      <p style="color:#666; text-align:center;">Loading receipt…</p>
+    </div>
+
+    <div class="actions">
+      <button id="print-btn" class="btn primary">Print / Save as PDF</button>
+      <a id="download-link" class="btn" style="display:none;">Download HTML</a>
+    </div>
+  </div>
+
+  <script>
+    // Helper to get query params
+    function getQueryParams() {
+      const q = {};
+      const parts = window.location.search.replace(/^\?/, '').split('&').filter(Boolean);
+      parts.forEach(p => {
+        const [k, v] = p.split('=');
+        if (!k) return;
+        q[decodeURIComponent(k)] = decodeURIComponent(v || '');
+      });
+      return q;
+    }
+
+    function formatPrice(amount) {
+      if (!amount) return '';
+      if (typeof amount === 'string' && amount.trim().startsWith('₦')) return amount;
+      return '₦' + Number(amount).toLocaleString();
+    }
+
+    function renderOrder(order) {
+      const lines = [];
+      lines.push(`<h2>Receipt — ${order.orderId || ''}</h2>`);
+      lines.push(`<div class="meta">${order.payment_method || (order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery')}</div>`);
+      lines.push(`<div><strong>Customer:</strong> ${order.name || ''}</div>`);
+      if (order.phone) lines.push(`<div><strong>Phone:</strong> ${order.phone}</div>`);
+      if (order.email) lines.push(`<div><strong>Email:</strong> ${order.email}</div>`);
+      if (order.address) lines.push(`<div><strong>Address:</strong> ${order.address}</div>`);
+      lines.push(`<div style="margin-top:12px;"><strong>Items</strong></div>`);
+      lines.push('<table>');
+      lines.push('<thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Line Total</th></tr></thead>');
+      lines.push('<tbody>');
+      if (Array.isArray(order.cart) && order.cart.length) {
+        order.cart.forEach(it => {
+          const qty = it.quantity || 1;
+          const line = it.item_total || it.unit_price || '';
+          lines.push(`<tr><td>${it.name}</td><td style="text-align:right">${qty}</td><td style="text-align:right">${line}</td></tr>`);
+        });
+      } else {
+        lines.push('<tr><td colspan="3">No items recorded.</td></tr>');
+      }
+      lines.push('</tbody>');
+      lines.push('</table>');
+      lines.push(`<div style="margin-top:12px; font-weight:700; text-align:right;">Total: ${order.total || ''}</div>`);
+      lines.push(`<div style="margin-top:8px; color:#666;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`);
+      if (order.payment_reference) lines.push(`<div style="margin-top:6px; color:#666;"><strong>Payment Reference:</strong> ${order.payment_reference}</div>`);
+      return lines.join('');
+    }
+
+    (function() {
+      const params = getQueryParams();
+      const orderId = params.order;
+      const typeHint = params.type; // 'paid' or 'cod'
+
+      const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+      const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+
+      let order = paid.find(o => o.orderId === orderId) || cod.find(o => o.orderId === orderId);
+
+      const container = document.getElementById('receipt-container');
+
+      if (!order) {
+        container.innerHTML = '<p style="color:#9f1239;">Receipt not found. Make sure you used the same browser/device where the purchase was made, or check your email for the confirmation.</p>';
+        return;
+      }
+
+      // if order came from cod list it might not have _type property; add it
+      order._type = order._type || (paid.find(o => o.orderId === orderId) ? 'paid' : 'cod');
+
+      container.innerHTML = renderOrder(order);
+
+      // print button
+      document.getElementById('print-btn').addEventListener('click', function() {
+        window.print();
+      });
+
+      // optional: provide a "download HTML" link so user can save the receipt as a file
+      const downloadLink = document.getElementById('download-link');
+      const blob = new Blob([ '<!doctype html><html><head><meta charset="utf-8"><title>Receipt '+order.orderId+'</title><link rel="stylesheet" href="styles.css"></head><body>' + container.innerHTML + '</body></html>' ], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      downloadLink.href = url;
+      downloadLink.download = (order.orderId || 'receipt') + '.html';
+      downloadLink.style.display = 'inline-block';
+    })();
+  </script>
+</body>
+</html>

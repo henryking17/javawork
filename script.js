@@ -2,11 +2,6 @@
 
 
 
-
-
-
-
-
 // Simple product search — filters product cards by title and description.
 // Include this file after your main script.js or merge the logic into it.
 
@@ -86,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!searchInput.value.trim()) performSearch();
   });
 });
-  
   
   
   
@@ -271,8 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
       window.alert(msg);
     }
   }
-
-
 
 // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -784,22 +776,89 @@ function computeCartTotal() {
     return total;
 }
 
-// Replace existing initiateCardPayment() and checkout() with these versions.
+// New: Checkout modal logic to collect customer info before Paystack
+const checkoutModal = document.getElementById('checkout-modal');
+const checkoutClose = document.getElementById('checkout-close');
+const checkoutForm = document.getElementById('checkout-form');
+const checkoutPayBtn = document.getElementById('checkout-pay-btn');
+const checkoutCancelBtn = document.getElementById('checkout-cancel-btn');
+const checkoutSummary = document.getElementById('checkout-summary');
 
-// Initiate paying with Paystack (opens cart then checkout)
-// This remains the same entry point but ensures checkout() is called after showing cart.
-function initiateCardPayment() {
+if (checkoutClose) checkoutClose.addEventListener('click', () => { checkoutModal.style.display = 'none'; });
+if (checkoutCancelBtn) checkoutCancelBtn.addEventListener('click', () => { checkoutModal.style.display = 'none'; });
+
+function showCheckoutModal() {
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty! Add items before paying.');
         return;
     }
-    // show cart first
-    showCart();
-    // then start checkout after short delay (ensures modal visible)
-    setTimeout(() => checkout(), 100);
+    // populate summary
+    const total = computeCartTotal();
+    let html = '<div class="delivery-summary" style="padding:10px; border-radius:6px;">';
+    for (const key in cart) {
+        const details = getProductDetails(key);
+        const q = cart[key];
+        html += `<div style="display:flex; justify-content:space-between; margin-bottom:6px;"><div>${details.name} x ${q}</div><div>${formatPrice(details.unit_price * q)}</div></div>`;
+    }
+    html += `<hr><div style="display:flex; justify-content:space-between; font-weight:700;"><div>Total</div><div>${formatPrice(total)}</div></div>`;
+    html += '</div>';
+    checkoutSummary.innerHTML = html;
+
+    // prefill fields if saved
+    const saved = JSON.parse(localStorage.getItem('customerInfo') || '{}');
+    if (saved && saved.name) document.getElementById('checkout-name').value = saved.name;
+    if (saved && saved.phone) document.getElementById('checkout-phone').value = saved.phone;
+    if (saved && saved.email) document.getElementById('checkout-email').value = saved.email;
+
+    checkoutModal.style.display = 'block';
+    checkoutModal.setAttribute('aria-hidden', 'false');
 }
 
-function checkout() {
+if (checkoutPayBtn) {
+    checkoutPayBtn.addEventListener('click', () => {
+        const name = (document.getElementById('checkout-name').value || '').trim();
+        const phone = (document.getElementById('checkout-phone').value || '').trim();
+        const email = (document.getElementById('checkout-email').value || '').trim();
+
+        if (!name || !phone) {
+            showCheckoutMessage('Please enter your full name and phone number.', 'error');
+            return;
+        }
+        if (email && !isValidEmail(email)) {
+            showCheckoutMessage('Please enter a valid email address.', 'error');
+            return;
+        }
+        if (!isValidPhone(phone)) {
+            showCheckoutMessage('Please enter a valid phone number.', 'error');
+            return;
+        }
+
+        // store customer info so it's used for receipts later
+        const customerInfo = { name, phone, email };
+        localStorage.setItem('customerInfo', JSON.stringify(customerInfo));
+
+        // hide modal and initiate Paystack checkout with customer info
+        checkoutModal.style.display = 'none';
+        checkout(customerInfo);
+    });
+}
+
+function showCheckoutMessage(msg, type) {
+    const el = document.getElementById('checkout-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = (type === 'error') ? '#9f1239' : '#065f46';
+    setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+// Replace existing initiateCardPayment() and checkout() with these versions.
+
+// Initiate paying with Paystack (opens checkout modal)
+function initiateCardPayment() {
+    showCheckoutModal();
+}
+
+function checkout(customerInfo = {}) {
     const totalNGN = computeCartTotal();
     if (totalNGN <= 0) {
         alert('Cart total is zero. Add items before checkout.');
@@ -830,9 +889,10 @@ function checkout() {
     // Compose a compact string for metadata (Paystack dashboard shows metadata / custom_fields)
     const itemsSummary = items.map(i => `${i.name} x${i.quantity}`).join(' ; ');
 
-    // NOTE: for production, collect real customer email and name before checkout and pass them below.
-    const customerEmail = 'customer@example.com';
-    const customerName = 'Paystack Customer';
+    // Use customer info collected from checkout modal if present
+    const customerEmail = (customerInfo && customerInfo.email) ? customerInfo.email : (localStorage.getItem('customerInfo') ? (JSON.parse(localStorage.getItem('customerInfo')).email || 'customer@example.com') : 'customer@example.com');
+    const customerName = (customerInfo && customerInfo.name) ? customerInfo.name : (localStorage.getItem('customerInfo') ? (JSON.parse(localStorage.getItem('customerInfo')).name || 'Paystack Customer') : 'Paystack Customer');
+    const customerPhone = (customerInfo && customerInfo.phone) ? customerInfo.phone : (localStorage.getItem('customerInfo') ? (JSON.parse(localStorage.getItem('customerInfo')).phone || '') : '');
 
     const handler = PaystackPop.setup({
         key: paystackPublicKey,
@@ -842,8 +902,6 @@ function checkout() {
         ref: 'PS_' + Math.floor((Math.random() * 1000000000) + 1),
         // Add metadata so product names are visible in Paystack transaction details and webhooks
         metadata: {
-            // You can include a JSON string, or use custom_fields for nicer display in the dashboard
-            // Custom fields are shown under "Metadata" in Paystack transaction details
             custom_fields: [
                 {
                     display_name: "Items",
@@ -854,9 +912,23 @@ function checkout() {
                     display_name: "Order Summary (total)",
                     variable_name: "order_summary",
                     value: formatPrice(paymentTotal)
+                },
+                {
+                    display_name: "Customer Name",
+                    variable_name: "customer_name",
+                    value: customerName
+                },
+                {
+                    display_name: "Customer Phone",
+                    variable_name: "customer_phone",
+                    value: customerPhone
+                },
+                {
+                    display_name: "Customer Email",
+                    variable_name: "customer_email",
+                    value: customerEmail
                 }
             ],
-            // Also include raw JSON if you prefer (be mindful of size limits)
             items_json: JSON.stringify(items)
         },
         callback: function(response) {
@@ -865,7 +937,7 @@ function checkout() {
             const paymentOrder = {
                 name: customerName,
                 email: customerEmail,
-                phone: '',
+                phone: customerPhone,
                 cart: items,
                 total: formatPrice(paymentTotal),
                 timestamp: new Date().toISOString(),
@@ -873,6 +945,15 @@ function checkout() {
                 payment_reference: response.reference,
                 payment_method: 'Paystack'
             };
+
+            // store paid order locally for receipts
+            try {
+                let paidOrders = JSON.parse(localStorage.getItem('paid_orders')) || [];
+                paidOrders.push(paymentOrder);
+                localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+            } catch (e) {
+                console.error('Error saving paid order locally', e);
+            }
 
             // send order email
             sendOrderEmail(paymentOrder, 'payment')
@@ -884,6 +965,9 @@ function checkout() {
             localStorage.setItem('cart', JSON.stringify(cart));
             updateCartCount();
             closeCart();
+
+            // Refresh receipts UI (if visible)
+            renderReceipts();
         },
         onClose: function() {
             alert('Payment cancelled.');
@@ -1028,6 +1112,9 @@ if (deliveryForm) {
             setTimeout(() => {
                 closeDeliveryModal();
             }, 3000);
+
+            // Refresh receipts UI
+            renderReceipts();
 
             console.log('Cash on Delivery order submitted:', deliveryData);
         }, 1500);
@@ -1225,4 +1312,125 @@ function showSpecs() {
     specsContainer.style.display = 'block';
 }
 
-// -------------------- End of script --------------------
+// -------------------- Receipts UI --------------------
+const receiptsListEl = document.getElementById('receipts-list');
+const receiptModal = document.getElementById('receipt-modal');
+const receiptClose = document.getElementById('receipt-close');
+const receiptCloseBtn = document.getElementById('receipt-close-btn');
+const receiptContent = document.getElementById('receipt-content');
+const receiptPrintBtn = document.getElementById('receipt-print-btn');
+
+if (receiptClose) receiptClose.addEventListener('click', () => { receiptModal.style.display = 'none'; });
+if (receiptCloseBtn) receiptCloseBtn.addEventListener('click', () => { receiptModal.style.display = 'none'; });
+if (receiptPrintBtn) receiptPrintBtn.addEventListener('click', () => { printReceipt(); });
+
+function renderReceipts() {
+    if (!receiptsListEl) return;
+    receiptsListEl.innerHTML = '';
+
+    const paid = JSON.parse(localStorage.getItem('paid_orders')) || [];
+    const cod = JSON.parse(localStorage.getItem('cash_orders')) || [];
+
+    const all = [
+        ...paid.map(o => ({ ...o, _type: 'paid' })),
+        ...cod.map(o => ({ ...o, _type: 'cod' }))
+    ];
+
+    if (all.length === 0) {
+        receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts found yet. Complete a purchase to see receipts here.</p>';
+        return;
+    }
+
+    // sort by timestamp desc
+    all.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    all.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'receipt-card';
+        card.style.padding = '12px';
+        card.style.borderBottom = '1px solid #eee';
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700;">${order.orderId}</div>
+                    <div style="color:#666; font-size:0.95rem;">${order.name || ''} • ${order.phone || ''} • ${order.email || ''}</div>
+                    <div style="color:#666; font-size:0.92rem; margin-top:6px;">${order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:700; color:#e74c3c;">${order.total || ''}</div>
+                    <div style="margin-top:8px;"><button class="btn" data-id="${order.orderId}" data-type="${order._type}">View</button></div>
+                </div>
+            </div>
+        `;
+        receiptsListEl.appendChild(card);
+
+        const btn = card.querySelector('button');
+        btn.addEventListener('click', () => {
+            viewReceipt(order.orderId, order._type);
+        });
+    });
+}
+
+function viewReceipt(orderId, typeHint) {
+    // find order in paid_orders or cash_orders
+    let order = null;
+    const paid = JSON.parse(localStorage.getItem('paid_orders')) || [];
+    const cod = JSON.parse(localStorage.getItem('cash_orders')) || [];
+
+    order = paid.find(o => o.orderId === orderId) || cod.find(o => o.orderId === orderId);
+
+    if (!order) {
+        alert('Receipt not found.');
+        return;
+    }
+
+    // render receipt HTML
+    const lines = [];
+    lines.push(`<h3>Receipt — ${order.orderId}</h3>`);
+    lines.push(`<div style="color:#666; margin-bottom:8px;">${order.payment_method || (typeHint === 'paid' ? 'Paystack' : 'Cash on Delivery')}</div>`);
+    lines.push(`<div><strong>Customer:</strong> ${order.name || ''}</div>`);
+    if (order.phone) lines.push(`<div><strong>Phone:</strong> ${order.phone}</div>`);
+    if (order.email) lines.push(`<div><strong>Email:</strong> ${order.email}</div>`);
+    if (order.address) lines.push(`<div><strong>Address:</strong> ${order.address}</div>`);
+    lines.push(`<div style="margin-top:10px;"><strong>Items</strong></div>`);
+    lines.push('<table style="width:100%; border-collapse:collapse; margin-top:6px;">');
+    lines.push('<thead><tr><th style="text-align:left; padding:6px; border-bottom:1px solid #eee;">Item</th><th style="text-align:right; padding:6px; border-bottom:1px solid #eee;">Qty</th><th style="text-align:right; padding:6px; border-bottom:1px solid #eee;">Line Total</th></tr></thead>');
+    lines.push('<tbody>');
+    if (Array.isArray(order.cart) && order.cart.length) {
+        order.cart.forEach(it => {
+            const qty = it.quantity || 1;
+            const line = it.item_total || it.unit_price || '';
+            lines.push(`<tr><td style="padding:6px; border-bottom:1px solid #fafafa;">${it.name}</td><td style="padding:6px; text-align:right; border-bottom:1px solid #fafafa;">${qty}</td><td style="padding:6px; text-align:right; border-bottom:1px solid #fafafa;">${line}</td></tr>`);
+        });
+    } else {
+        lines.push('<tr><td colspan="3" style="padding:6px;">No items recorded.</td></tr>');
+    }
+    lines.push('</tbody>');
+    lines.push('</table>');
+    lines.push(`<div style="margin-top:12px; font-weight:700; text-align:right;">Total: ${order.total || ''}</div>`);
+    lines.push(`<div style="margin-top:8px; color:#666;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`);
+
+    receiptContent.innerHTML = lines.join('');
+    receiptModal.style.display = 'block';
+    receiptModal.setAttribute('aria-hidden', 'false');
+}
+
+// Print receipt content
+function printReceipt() {
+    const content = receiptContent.innerHTML;
+    const w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) {
+        alert('Please allow popups to print receipt.');
+        return;
+    }
+    w.document.write(`<html><head><title>Receipt</title><style>body{font-family: Arial, sans-serif; padding:20px;} table{width:100%; border-collapse:collapse;} th,td{padding:8px; border:1px solid #ddd;}</style></head><body>${content}<hr><div style="text-align:center; margin-top:12px;"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`);
+    w.document.close();
+    w.focus();
+}
+
+// Initialize receipts UI on load
+document.addEventListener('DOMContentLoaded', () => {
+    renderReceipts();
+});
+
+// -------------------- End of script ---------------->

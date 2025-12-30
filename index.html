@@ -27,7 +27,7 @@
                     <li><a href="#payment"><b>Payment</b></a></li>
                     <li><a href="#about"><b>About</b></a></li>
                     <li><a href="#contact"><b>Contact</b></a></li>
-                    
+                    <li><a href="#receipts"><b>Receipts</b></a></li>
                 </ul>
                 <button class="hamburger" id="hamburger">☰</button>
             </nav>
@@ -180,7 +180,20 @@
             </div>
         </div>
     </section>
-<!-- Replace your existing <section id="contact" class="contact"> ... </section> with this block -->
+
+<!-- Receipts Section -->
+<section id="receipts" class="contact">
+  <div class="container">
+    <h2>Your Receipts</h2>
+    <p>View receipts for completed purchases (Paystack payments and Cash on Delivery). Click "View" to open the receipt and print/download.</p>
+    <div id="receipts-list" class="receipts-list card" style="max-width:1000px; margin: 0 auto; padding: 16px;">
+      <!-- Receipts are populated by script.js -->
+      <p style="color:#666; text-align:center;">Loading receipts...</p>
+    </div>
+  </div>
+</section>
+
+<!-- Contact section (unchanged structure) -->
 <section id="contact" class="contact">
   <div class="container">
     <div class="contact-content">
@@ -331,6 +344,38 @@
         </div>
     </div>
 
+    <!-- Checkout modal (collect customer info before Paystack) -->
+    <div id="checkout-modal" class="modal" aria-hidden="true">
+      <div class="modal-content" style="max-width:600px; text-align:left;">
+        <span class="close" id="checkout-close">&times;</span>
+        <h2>Checkout Details</h2>
+        <p>Please enter your name, phone and email. These will appear on your receipt and in Paystack transaction details.</p>
+
+        <div id="checkout-summary" style="margin-bottom:12px;"></div>
+
+        <form id="checkout-form">
+          <div class="form-group">
+            <label for="checkout-name">Full name *</label>
+            <input type="text" id="checkout-name" name="name" required>
+          </div>
+          <div class="form-group">
+            <label for="checkout-phone">Phone number *</label>
+            <input type="tel" id="checkout-phone" name="phone" required>
+          </div>
+          <div class="form-group">
+            <label for="checkout-email">Email address</label>
+            <input type="email" id="checkout-email" name="email">
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:12px;">
+            <button type="button" class="btn primary" id="checkout-pay-btn">Pay Now</button>
+            <button type="button" class="btn ghost" id="checkout-cancel-btn">Cancel</button>
+          </div>
+        </form>
+        <div id="checkout-msg" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
     <!-- Delivery modal -->
     <div id="delivery-modal" class="modal">
         <div class="modal-content">
@@ -380,6 +425,18 @@
                 <div id="delivery-status"></div>
             </form>
         </div>
+    </div>
+
+    <!-- Receipt modal -->
+    <div id="receipt-modal" class="modal" aria-hidden="true">
+      <div class="modal-content" style="max-width:700px; text-align:left;">
+        <span class="close" id="receipt-close">&times;</span>
+        <div id="receipt-content"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+          <button class="btn primary" id="receipt-print-btn">Print / Save PDF</button>
+          <button class="btn ghost" id="receipt-close-btn">Close</button>
+        </div>
+      </div>
     </div>
 
     <!-- Image (lightbox) modal -->

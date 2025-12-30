@@ -269,15 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (noResultsEl && noResultsEl.parentNode) noResultsEl.parentNode.removeChild(noResultsEl);
   }
 
-  function performSearch(options = {}) {
-    // options: { query: string (optional), scroll: boolean (default true) }
-    const queryFromOptions = options && typeof options.query === 'string' ? options.query : null;
-    const mobileInput = document.getElementById('mobile-search-input');
-    const q = (queryFromOptions !== null
-      ? queryFromOptions
-      : (searchInput && searchInput.value) ? searchInput.value : (mobileInput && mobileInput.value ? mobileInput.value : '')
-    ).trim().toLowerCase();
-
+  function performSearch() {
+    const q = (searchInput.value || '').trim().toLowerCase();
     const cards = productCards();
     if (!q) {
       // show all
@@ -300,82 +293,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    if (!foundAny) {
-      showNoResults();
-    } else {
-      hideNoResults();
-      // If requested, scroll to the first visible matching product (or products grid)
-      if (options.scroll !== false && foundAny) {
-        const firstVisible = cards.find(c => c.style.display !== 'none');
-        if (firstVisible) {
-          // give a small delay so layout settles (use requestAnimationFrame)
-          requestAnimationFrame(() => {
-            const header = document.querySelector('header');
-            const headerHeight = header && header.offsetHeight ? header.offsetHeight : 0;
-            const rect = firstVisible.getBoundingClientRect();
-            const top = window.pageYOffset + rect.top - headerHeight - 12;
-            window.scrollTo({ top, behavior: 'smooth' });
-          });
-        } else if (productsSection) {
-          requestAnimationFrame(() => {
-            const header = document.querySelector('header');
-            const headerHeight = header && header.offsetHeight ? header.offsetHeight : 0;
-            const rect = productsSection.getBoundingClientRect();
-            const top = window.pageYOffset + rect.top - headerHeight - 12;
-            window.scrollTo({ top, behavior: 'smooth' });
-          });
-        }
-      }
-    }
+    if (!foundAny) showNoResults();
+    else hideNoResults();
   }
 
   // live search while typing (optional): uncomment the listener below if you want instant filtering
-  // searchInput.addEventListener('input', () => performSearch({ scroll: false }));
+  // searchInput.addEventListener('input', performSearch);
 
-  // search on Enter (desktop)
-  if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        performSearch({ scroll: true });
-      }
-    });
-  }
-
-  // search on button click (desktop)
-  if (searchBtn) {
-    searchBtn.addEventListener('click', (e) => {
+  // search on Enter
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      performSearch({ scroll: true });
-    });
-  }
+      performSearch();
+    }
+  });
 
-  // mobile search: wire up mobile search button and enter key
-  const mobileSearchInput = document.getElementById('mobile-search-input');
-  const mobileSearchBtn = document.getElementById('mobile-search-btn');
-  if (mobileSearchBtn && mobileSearchInput) {
-    mobileSearchBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      performSearch({ query: mobileSearchInput.value, scroll: true });
-      // close mobile menu if open
-      const navUl = document.querySelector('nav ul'); if (navUl && navUl.classList.contains('show')) navUl.classList.remove('show');
-    });
-
-    mobileSearchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        performSearch({ query: mobileSearchInput.value, scroll: true });
-        const navUl = document.querySelector('nav ul'); if (navUl && navUl.classList.contains('show')) navUl.classList.remove('show');
-      }
-    });
-  }
+  // search on button click
+  searchBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    performSearch();
+  });
 
   // optional: clear search when input is emptied
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      if (!searchInput.value.trim()) performSearch({ scroll: false });
-    });
-  }
+  searchInput.addEventListener('input', () => {
+    if (!searchInput.value.trim()) performSearch();
+  });
 });
   
   

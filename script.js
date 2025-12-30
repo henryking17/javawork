@@ -57,6 +57,7 @@ function renderReceiptHtml(order) {
  * Renders the receipts list. Each receipt card has a collapsible details area.
  */
 function renderReceipts() {
+  const receiptsListEl = document.getElementById('receipts-list');
   if (!receiptsListEl) return;
   receiptsListEl.innerHTML = '';
 
@@ -208,11 +209,31 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Helpers to persist receipts locally
+function savePaidOrder(order) {
+  try {
+    const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+    paidOrders.push(order);
+    localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+  } catch (e) {
+    console.error('Error saving paid order locally', e);
+  }
+}
+
+function saveCODOrder(order) {
+  try {
+    const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+    codOrders.push(order);
+    localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+  } catch (e) {
+    console.error('Error saving COD order locally', e);
+  }
+}
+
 // Ensure receipts render on load
 document.addEventListener('DOMContentLoaded', () => {
   renderReceipts();
 });
-
 
 
 
@@ -296,7 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!searchInput.value.trim()) performSearch();
   });
 });
-  
   
   
   
@@ -478,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+
 // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
@@ -642,6 +663,7 @@ if (contactForm) {
     });
 }
 function showFormStatus(message, type) {
+    if (!formStatus) return;
     formStatus.textContent = message;
     formStatus.className = type;
     formStatus.style.display = 'block';
@@ -1159,13 +1181,7 @@ function checkout(customerInfo = {}) {
             };
 
             // store paid order locally for receipts
-            try {
-                let paidOrders = JSON.parse(localStorage.getItem('paid_orders')) || [];
-                paidOrders.push(paymentOrder);
-                localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
-            } catch (e) {
-                console.error('Error saving paid order locally', e);
-            }
+            savePaidOrder(paymentOrder);
 
             // send order email
             sendOrderEmail(paymentOrder, 'payment')
@@ -1296,10 +1312,8 @@ if (deliveryForm) {
                 payment_method: 'Cash on Delivery'
             };
 
-            // store locally for demo
-            let orders = JSON.parse(localStorage.getItem('cash_orders')) || [];
-            orders.push(deliveryData);
-            localStorage.setItem('cash_orders', JSON.stringify(orders));
+            // store COD order locally for receipts
+            saveCODOrder(deliveryData);
 
             // send email
             try {
@@ -1532,100 +1546,91 @@ const receiptCloseBtn = document.getElementById('receipt-close-btn');
 const receiptContent = document.getElementById('receipt-content');
 const receiptPrintBtn = document.getElementById('receipt-print-btn');
 
+// -------------------- Wire the Show / Hide Receipts toggle button (works if the button exists in HTML or creates one) ----
+// Ensures the receipts list is hidden by default and populated only when shown.
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const receiptsSection = document.getElementById('receipts');
+    const receiptsList = document.getElementById('receipts-list');
+    if (!receiptsSection || !receiptsList) return;
+
+    const container = receiptsSection.querySelector('.container') || receiptsSection;
+    const infoP = container.querySelector('p');
+
+    // find existing button or create one
+    let btn = document.getElementById('toggle-receipts-btn');
+    if (!btn) {
+      const wrapper = document.createElement('div');
+      wrapper.style.textAlign = 'center';
+      wrapper.style.margin = '12px 0';
+
+      btn = document.createElement('button');
+      btn.id = 'toggle-receipts-btn';
+      btn.className = 'btn ghost';
+      btn.type = 'button';
+      btn.setAttribute('aria-expanded', 'false');
+      btn.setAttribute('aria-controls', 'receipts-list');
+      btn.textContent = 'Show Receipts';
+
+      wrapper.appendChild(btn);
+      if (infoP && infoP.parentNode) infoP.parentNode.insertBefore(wrapper, infoP.nextSibling);
+      else container.insertBefore(wrapper, receiptsList);
+    } else {
+      // ensure attributes exist
+      btn.setAttribute('aria-controls', 'receipts-list');
+      if (!btn.getAttribute('aria-expanded')) btn.setAttribute('aria-expanded', 'false');
+      if (!btn.textContent || !btn.textContent.trim()) btn.textContent = 'Show Receipts';
+    }
+
+    // Start collapsed
+    receiptsList.style.display = 'none';
+
+    // Replace with a fresh clone to avoid duplicate handlers
+    const freshBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(freshBtn, btn);
+    btn = freshBtn;
+
+    // click handler
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      if (!expanded) {
+        receiptsList.style.display = '';
+        try { renderReceipts(); } catch (err) { console.error('Error rendering receipts on show:', err); }
+        btn.textContent = 'Hide Receipts';
+        btn.setAttribute('aria-expanded', 'true');
+        setTimeout(() => receiptsList.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      } else {
+        receiptsList.style.display = 'none';
+        receiptsList.innerHTML = '';
+        btn.textContent = 'Show Receipts';
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Auto-show if receipts exist
+    try {
+      const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+      const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+      if ((paid && paid.length) || (cod && cod.length)) {
+        btn.click();
+      }
+    } catch (err) {
+      console.error('Error checking stored receipts for auto-show:', err);
+    }
+
+  } catch (e) {
+    console.error('Error initializing receipts toggle:', e);
+  }
+});
+
+// -------------------- Existing receipt modal & print wiring --------------------
 if (receiptClose) receiptClose.addEventListener('click', () => { receiptModal.style.display = 'none'; });
 if (receiptCloseBtn) receiptCloseBtn.addEventListener('click', () => { receiptModal.style.display = 'none'; });
 if (receiptPrintBtn) receiptPrintBtn.addEventListener('click', () => { printReceipt(); });
 
-function renderReceipts() {
-    if (!receiptsListEl) return;
-    receiptsListEl.innerHTML = '';
-
-    const paid = JSON.parse(localStorage.getItem('paid_orders')) || [];
-    const cod = JSON.parse(localStorage.getItem('cash_orders')) || [];
-
-    const all = [
-        ...paid.map(o => ({ ...o, _type: 'paid' })),
-        ...cod.map(o => ({ ...o, _type: 'cod' }))
-    ];
-
-    if (all.length === 0) {
-        receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts found yet. Complete a purchase to see receipts here.</p>';
-        return;
-    }
-
-    // sort by timestamp desc
-    all.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    all.forEach(order => {
-        const card = document.createElement('div');
-        card.className = 'receipt-card';
-        card.style.padding = '12px';
-        card.style.borderBottom = '1px solid #eee';
-        // Create an anchor that opens receipt.html in a new tab with orderId and type
-        const orderIdEsc = encodeURIComponent(order.orderId || '');
-        const type = order._type === 'paid' ? 'paid' : 'cod';
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="font-weight:700;">${order.orderId}</div>
-                    <div style="color:#666; font-size:0.95rem;">${order.name || ''} • ${order.phone || ''} • ${order.email || ''}</div>
-                    <div style="color:#666; font-size:0.92rem; margin-top:6px;">${order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-weight:700; color:#e74c3c;">${order.total || ''}</div>
-                    <div style="margin-top:8px;">
-                      <a class="btn" href="receipt.html?orderId=${orderIdEsc}&type=${type}" target="_blank" rel="noopener">View</a>
-                    </div>
-                </div>
-            </div>
-        `;
-        receiptsListEl.appendChild(card);
-    });
-}
-
-function viewReceipt(orderId, typeHint) {
-    // kept as fallback for modal-based viewing if ever needed
-    let order = null;
-    const paid = JSON.parse(localStorage.getItem('paid_orders')) || [];
-    const cod = JSON.parse(localStorage.getItem('cash_orders')) || [];
-
-    order = paid.find(o => o.orderId === orderId) || cod.find(o => o.orderId === orderId);
-
-    if (!order) {
-        alert('Receipt not found.');
-        return;
-    }
-
-    // render receipt HTML into modal (existing behavior)
-    const lines = [];
-    lines.push(`<h3>Receipt — ${order.orderId}</h3>`);
-    lines.push(`<div style="color:#666; margin-bottom:8px;">${order.payment_method || (typeHint === 'paid' ? 'Paystack' : 'Cash on Delivery')}</div>`);
-    lines.push(`<div><strong>Customer:</strong> ${order.name || ''}</div>`);
-    if (order.phone) lines.push(`<div><strong>Phone:</strong> ${order.phone}</div>`);
-    if (order.email) lines.push(`<div><strong>Email:</strong> ${order.email}</div>`);
-    if (order.address) lines.push(`<div><strong>Address:</strong> ${order.address}</div>`);
-    lines.push(`<div style="margin-top:10px;"><strong>Items</strong></div>`);
-    lines.push('<table style="width:100%; border-collapse:collapse; margin-top:6px;">');
-    lines.push('<thead><tr><th style="text-align:left; padding:6px; border-bottom:1px solid #eee;">Item</th><th style="text-align:right; padding:6px; border-bottom:1px solid #eee;">Qty</th><th style="text-align:right; padding:6px; border-bottom:1px solid #eee;">Line Total</th></tr></thead>');
-    lines.push('<tbody>');
-    if (Array.isArray(order.cart) && order.cart.length) {
-        order.cart.forEach(it => {
-            const qty = it.quantity || 1;
-            const line = it.item_total || it.unit_price || '';
-            lines.push(`<tr><td style="padding:6px; border-bottom:1px solid #fafafa;">${it.name}</td><td style="padding:6px; text-align:right; border-bottom:1px solid #fafafa;">${qty}</td><td style="padding:6px; text-align:right; border-bottom:1px solid #fafafa;">${line}</td></tr>`);
-        });
-    } else {
-        lines.push('<tr><td colspan="3" style="padding:6px;">No items recorded.</td></tr>');
-    }
-    lines.push('</tbody>');
-    lines.push('</table>');
-    lines.push(`<div style="margin-top:12px; font-weight:700; text-align:right;">Total: ${order.total || ''}</div>`);
-    lines.push(`<div style="margin-top:8px; color:#666;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`);
-
-    receiptContent.innerHTML = lines.join('');
-    receiptModal.style.display = 'block';
-    receiptModal.setAttribute('aria-hidden', 'false');
-}
+// (Detailed receipt rendering is implemented earlier via renderReceipts() and renderReceiptHtml())
+// The button toggle will call the existing renderReceipts() when showing receipts.
 
 // Print receipt content
 function printReceipt() {
@@ -1639,6 +1644,8 @@ function printReceipt() {
     w.document.close();
     w.focus();
 }
+
+
 
 // Initialize receipts UI on load
 document.addEventListener('DOMContentLoaded', () => {

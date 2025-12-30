@@ -244,6 +244,8 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('search-input');
   const searchBtn = document.getElementById('search-btn');
+  // If the desktop search was removed, don't wire up listeners (mobile search still works)
+  if (!searchInput || !searchBtn) return;
   const productCards = () => Array.from(document.querySelectorAll('.product-card'));
   const productsSection = document.querySelector('#products .product-grid');
 
@@ -267,8 +269,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (noResultsEl && noResultsEl.parentNode) noResultsEl.parentNode.removeChild(noResultsEl);
   }
 
-  function performSearch() {
-    const q = (searchInput.value || '').trim().toLowerCase();
+  function performSearch(options = {}) {
+    // options: { query: string (optional), scroll: boolean (default true) }
+    const queryFromOptions = options && typeof options.query === 'string' ? options.query : null;
+    const mobileInput = document.getElementById('mobile-search-input');
+    const q = (queryFromOptions !== null
+      ? queryFromOptions
+      : (searchInput && searchInput.value) ? searchInput.value : (mobileInput && mobileInput.value ? mobileInput.value : '')
+    ).trim().toLowerCase();
+
     const cards = productCards();
     if (!q) {
       // show all
@@ -291,31 +300,82 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    if (!foundAny) showNoResults();
-    else hideNoResults();
+    if (!foundAny) {
+      showNoResults();
+    } else {
+      hideNoResults();
+      // If requested, scroll to the first visible matching product (or products grid)
+      if (options.scroll !== false && foundAny) {
+        const firstVisible = cards.find(c => c.style.display !== 'none');
+        if (firstVisible) {
+          // give a small delay so layout settles (use requestAnimationFrame)
+          requestAnimationFrame(() => {
+            const header = document.querySelector('header');
+            const headerHeight = header && header.offsetHeight ? header.offsetHeight : 0;
+            const rect = firstVisible.getBoundingClientRect();
+            const top = window.pageYOffset + rect.top - headerHeight - 12;
+            window.scrollTo({ top, behavior: 'smooth' });
+          });
+        } else if (productsSection) {
+          requestAnimationFrame(() => {
+            const header = document.querySelector('header');
+            const headerHeight = header && header.offsetHeight ? header.offsetHeight : 0;
+            const rect = productsSection.getBoundingClientRect();
+            const top = window.pageYOffset + rect.top - headerHeight - 12;
+            window.scrollTo({ top, behavior: 'smooth' });
+          });
+        }
+      }
+    }
   }
 
   // live search while typing (optional): uncomment the listener below if you want instant filtering
-  // searchInput.addEventListener('input', performSearch);
+  // searchInput.addEventListener('input', () => performSearch({ scroll: false }));
 
-  // search on Enter
-  searchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
+  // search on Enter (desktop)
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performSearch({ scroll: true });
+      }
+    });
+  }
+
+  // search on button click (desktop)
+  if (searchBtn) {
+    searchBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      performSearch();
-    }
-  });
+      performSearch({ scroll: true });
+    });
+  }
 
-  // search on button click
-  searchBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    performSearch();
-  });
+  // mobile search: wire up mobile search button and enter key
+  const mobileSearchInput = document.getElementById('mobile-search-input');
+  const mobileSearchBtn = document.getElementById('mobile-search-btn');
+  if (mobileSearchBtn && mobileSearchInput) {
+    mobileSearchBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      performSearch({ query: mobileSearchInput.value, scroll: true });
+      // close mobile menu if open
+      const navUl = document.querySelector('nav ul'); if (navUl && navUl.classList.contains('show')) navUl.classList.remove('show');
+    });
+
+    mobileSearchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performSearch({ query: mobileSearchInput.value, scroll: true });
+        const navUl = document.querySelector('nav ul'); if (navUl && navUl.classList.contains('show')) navUl.classList.remove('show');
+      }
+    });
+  }
 
   // optional: clear search when input is emptied
-  searchInput.addEventListener('input', () => {
-    if (!searchInput.value.trim()) performSearch();
-  });
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      if (!searchInput.value.trim()) performSearch({ scroll: false });
+    });
+  }
 });
   
   
@@ -1608,12 +1668,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Auto-show if receipts exist
+    // Auto-show if receipts exist, but avoid auto-scrolling on page load
     try {
       const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
       const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
       if ((paid && paid.length) || (cod && cod.length)) {
-        btn.click();
+        // Show receipts without using the click handler which triggers scrollIntoView
+        receiptsList.style.display = '';
+        try { renderReceipts(); } catch (err) { console.error('Error rendering receipts on auto-show:', err); }
+        btn.textContent = 'Hide Receipts';
+        btn.setAttribute('aria-expanded', 'true');
+        // intentionally do not scroll into view on page load
       }
     } catch (err) {
       console.error('Error checking stored receipts for auto-show:', err);

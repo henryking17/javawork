@@ -296,7 +296,46 @@ const navUl = document.querySelector('nav ul');
 
 if (hamburger && navUl) {
     hamburger.addEventListener('click', () => {
-        navUl.classList.toggle('show');
+        const isOpen = navUl.classList.toggle('show');
+        // toggle active on hamburger for animation
+        hamburger.classList.toggle('active', isOpen);
+        hamburger.setAttribute('aria-expanded', String(!!isOpen));
+
+        // Focus the mobile search input when menu opens
+        const mobileInput = document.getElementById('mobile-search-input');
+        if (isOpen && mobileInput) {
+            setTimeout(() => mobileInput.focus(), 120);
+        }
+    });
+
+    // add ESC to close menu and remove active state
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navUl.classList.contains('show')) {
+            navUl.classList.remove('show');
+            hamburger.classList.remove('active');
+            hamburger.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+// Mobile search: copy the query to the main search input and trigger existing search behavior
+const mobileSearchBtn = document.getElementById('mobile-search-btn');
+const mobileSearchInput = document.getElementById('mobile-search-input');
+if (mobileSearchBtn && mobileSearchInput) {
+    mobileSearchBtn.addEventListener('click', () => {
+        const q = mobileSearchInput.value.trim();
+        const mainInput = document.getElementById('search-input');
+        const mainBtn = document.getElementById('search-btn');
+        if (mainInput) mainInput.value = q;
+        if (mainBtn) mainBtn.click();
+        // Close menu after searching on mobile
+        if (navUl) navUl.classList.remove('show');
+    });
+    mobileSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            mobileSearchBtn.click();
+        }
     });
 }
 
@@ -341,6 +380,7 @@ if (contactForm) {
         const subject = document.getElementById('subject').value.trim();
         const message = document.getElementById('message').value.trim();
 
+        // Basic validation
         if (!name || !email || !subject || !message) {
             showFormStatus('Please fill in all required fields.', 'error');
             return;
@@ -354,20 +394,47 @@ if (contactForm) {
             return;
         }
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending...';
+        // Disable submit button while sending
+        const btn = contactForm.querySelector('button[type="submit"]');
+        const prevText = btn ? btn.textContent : 'Send Message';
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
 
-        setTimeout(() => {
-            const contactData = { name, email, phone, subject, message, timestamp: new Date().toISOString() };
-            let contacts = JSON.parse(localStorage.getItem('contacts')) || [];
-            contacts.push(contactData);
-            localStorage.setItem('contacts', JSON.stringify(contacts));
-            contactForm.reset();
-            showFormStatus('Thank you for your message! We will get back to you within 24 hours.', 'success');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Send Message';
-            console.log('Contact form submitted:', contactData);
-        }, 2000);
+        // Prepare payload (FormData preserves file inputs and encoding)
+        const endpoint = contactForm.action || 'https://api.web3forms.com/submit';
+        const payload = new FormData(contactForm);
+        // Add a timestamp for our records
+        payload.append('timestamp', new Date().toISOString());
+
+        fetch(endpoint, {
+            method: 'POST',
+            body: payload
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Web3forms returns { success: true, message: "Email sent" ... }
+            if (data && data.success) {
+                // store a copy locally as well
+                const contactData = { name, email, phone, subject, message, timestamp: new Date().toISOString(), remoteResponse: data };
+                let contacts = JSON.parse(localStorage.getItem('contacts')) || [];
+                contacts.push(contactData);
+                localStorage.setItem('contacts', JSON.stringify(contacts));
+
+                contactForm.reset();
+                showFormStatus('Message sent! You should receive a confirmation email shortly.', 'success');
+                console.log('Contact form submitted (remote):', data);
+            } else {
+                const errMsg = (data && data.message) ? data.message : 'Failed to send message. Please try again later.';
+                showFormStatus('Send failed: ' + errMsg, 'error');
+                console.error('Web3Forms error:', data);
+            }
+        })
+        .catch(err => {
+            showFormStatus('Send failed: ' + (err.message || err), 'error');
+            console.error('Contact form send error:', err);
+        })
+        .finally(() => {
+            if (btn) { btn.disabled = false; btn.textContent = prevText; }
+        });
     });
 }
 function showFormStatus(message, type) {
@@ -383,36 +450,36 @@ function showFormStatus(message, type) {
 // Variants (used for detailed variant-level cart items if variant names are added)
 const productVariants = {
     'Refrigerator': [
-        { name: 'LG Double Door', description: 'Energy-efficient double door fridge', price: '₦250,000', emoji: '🧊', unit_price: 250000 },
-        { name: 'Samsung Side-by-Side', description: 'Large capacity side-by-side refrigerator', price: '₦450,000', emoji: '🧊', unit_price: 450000 },
-        { name: 'Whirlpool Single Door', description: 'Compact single door refrigerator', price: '₦150,000', emoji: '🧊', unit_price: 150000 }
+        { name: 'LG Double Door', description: 'Energy-efficient double door fridge', price: '₦250,000', emoji: '🧊', unit_price: 250000, stock: 4 },
+        { name: 'Samsung Side-by-Side', description: 'Large capacity side-by-side refrigerator', price: '₦450,000', emoji: '🧊', unit_price: 450000, stock: 2 },
+        { name: 'Whirlpool Single Door', description: 'Compact single door refrigerator', price: '₦150,000', emoji: '🧊', unit_price: 150000, stock: 10 }
     ],
     'Freezer': [
-        { name: 'Haier Chest Freezer', description: 'Large capacity chest freezer', price: '₦180,000', emoji: '❄️', unit_price: 180000 },
-        { name: 'LG Upright Freezer', description: 'Upright freezer with multiple compartments', price: '₦220,000', emoji: '❄️', unit_price: 220000 },
-        { name: 'Samsung Deep Freezer', description: 'Deep freezer for long-term storage', price: '₦200,000', emoji: '❄️', unit_price: 200000 }
+        { name: 'Haier Chest Freezer', description: 'Large capacity chest freezer', price: '₦180,000', emoji: '❄️', unit_price: 180000, stock: 5 },
+        { name: 'LG Upright Freezer', description: 'Upright freezer with multiple compartments', price: '₦220,000', emoji: '❄️', unit_price: 220000, stock: 3 },
+        { name: 'Samsung Deep Freezer', description: 'Deep freezer for long-term storage', price: '₦200,000', emoji: '❄️', unit_price: 200000, stock: 4 }
     ],
     'Sound Systems': [
-        { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound', price: '₦150,000', emoji: '🎬', unit_price: 150000 }
+        { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound', price: '₦150,000', emoji: '🎬', unit_price: 150000, stock: 6 }
     ]
     // Add more variants if needed
 };
 
 // Catalog entries used when user adds the displayed product card items directly to cart
 const productCatalog = {
-    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦250,000', unit_price: 250000 },
-    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000 },
-    'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000 },
-    'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000 },
-    'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000 },
-    'Sound Systems': { name: 'Sound Systems', description: 'Home theatre systems & soundbars', priceStr: '₦150,000', unit_price: 150000 },
-    'Microphones': { name: 'Microphones', description: 'Wired and wireless microphones', priceStr: '₦45,000', unit_price: 45000 },
-    'Rechargeable Standing Fans': { name: 'Rechargeable Standing Fans', description: 'Battery powered standing fans', priceStr: '₦35,000', unit_price: 35000 },
-    'Refrigerator': { name: 'Refrigerator', description: 'Single & double-door refrigerators', priceStr: '₦250,000', unit_price: 250000 },
-    'Standing Fans': { name: 'Standing Fans', description: 'Adjustable-height standing fans', priceStr: '₦25,000', unit_price: 25000 },
-    'Stabilizers': { name: 'Stabilizers', description: 'Voltage stabilizers', priceStr: '₦30,000', unit_price: 30000 },
-    'Sumec Firman Generators': { name: 'Sumec Firman Generators', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000 },
-    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000 }
+    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100,000', unit_price: 100000, stock: 8 },
+    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12 },
+    'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18 },
+    'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
+    'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000, stock: 10 },
+    'Sound Systems': { name: 'Sound Systems', description: 'Home theatre systems & soundbars', priceStr: '₦150,000', unit_price: 150000, stock: 6 },
+    'Microphones': { name: 'Microphones', description: 'Wired and wireless microphones', priceStr: '₦45,000', unit_price: 45000, stock: 15 },
+    'Rechargeable Standing Fans': { name: 'Rechargeable Standing Fans', description: 'Battery powered standing fans', priceStr: '₦35,000', unit_price: 35000, stock: 9 },
+    'Refrigerator': { name: 'Refrigerator', description: 'Single & double-door refrigerators', priceStr: '₦250,000', unit_price: 250000, stock: 7 },
+    'Standing Fans': { name: 'Standing Fans', description: 'Adjustable-height standing fans', priceStr: '₦25,000', unit_price: 25000, stock: 20 },
+    'Stabilizers': { name: 'Stabilizers', description: 'Voltage stabilizers', priceStr: '₦30,000', unit_price: 30000, stock: 14 },
+    'Sumec Firman Generators': { name: 'Sumec Firman Generators', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5 },
+    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000, stock: 11 }
 };
 
 // Helper to get product details by key (variant name or catalog title)
@@ -426,7 +493,8 @@ function getProductDetails(key) {
                     name: variant.name,
                     description: variant.description || '',
                     priceStr: variant.price || formatPrice(unit),
-                    unit_price: unit
+                    unit_price: unit,
+                    stock: (typeof variant.stock === 'number') ? variant.stock : null
                 };
             }
         }
@@ -437,7 +505,8 @@ function getProductDetails(key) {
             name: productCatalog[key].name,
             description: productCatalog[key].description || '',
             priceStr: productCatalog[key].priceStr || formatPrice(productCatalog[key].unit_price || 0),
-            unit_price: productCatalog[key].unit_price || 0
+            unit_price: productCatalog[key].unit_price || 0,
+            stock: (typeof productCatalog[key].stock === 'number') ? productCatalog[key].stock : null
         };
     }
     // Fallback
@@ -468,6 +537,21 @@ document.querySelectorAll('.product-image').forEach(container => {
     // add quick "Add to Cart" button to the product-card
     const productCard = container.closest('.product-card');
     if (productCard && !productCard.querySelector('.add-now')) {
+        // show price for card using catalog/variants
+        const titleElForPrice = productCard.querySelector('h3');
+        const titleForPrice = titleElForPrice ? titleElForPrice.textContent.trim() : '';
+        const detailsForPrice = getProductDetails(titleForPrice);
+        if (!productCard.querySelector('.price')) {
+            const priceEl = document.createElement('div');
+            priceEl.className = 'price';
+            priceEl.textContent = detailsForPrice.priceStr;
+            priceEl.style.fontWeight = '700';
+            priceEl.style.margin = '8px 12px';
+            const descEl = productCard.querySelector('p');
+            if (descEl && descEl.parentNode) descEl.parentNode.insertBefore(priceEl, descEl.nextSibling);
+            else productCard.appendChild(priceEl);
+        }
+
         const addBtn = document.createElement('button');
         addBtn.className = 'btn add-now';
         addBtn.textContent = 'Add to Cart';
@@ -517,6 +601,8 @@ document.querySelectorAll('.product-card').forEach(card => {
         document.getElementById('modal-title').textContent = title;
         document.getElementById('modal-image').src = imageSrc;
         document.getElementById('modal-description').textContent = description;
+        const modalPriceEl = document.getElementById('modal-price');
+        if (modalPriceEl) modalPriceEl.textContent = getProductDetails(title).priceStr || '';
 
         // Reset view
         document.getElementById('product-details').style.display = 'block';
@@ -548,6 +634,8 @@ if (productModalClose) {
         modal.setAttribute('aria-hidden', 'true');
         const specsEl = document.getElementById('modal-specs');
         if (specsEl) specsEl.innerHTML = '';
+        const modalPriceEl = document.getElementById('modal-price');
+        if (modalPriceEl) modalPriceEl.textContent = '';
     });
 }
 window.addEventListener('click', function(e) {
@@ -556,6 +644,8 @@ window.addEventListener('click', function(e) {
         modal.setAttribute('aria-hidden', 'true');
         const specsEl = document.getElementById('modal-specs');
         if (specsEl) specsEl.innerHTML = '';
+        const modalPriceEl = document.getElementById('modal-price');
+        if (modalPriceEl) modalPriceEl.textContent = '';
     }
     if (e.target === document.getElementById('delivery-modal')) {
         closeDeliveryModal();
@@ -569,6 +659,15 @@ updateCartCount();
 function addToCart(productKey) {
     const key = productKey.trim();
     if (!key) return;
+
+    // Check stock before adding
+    const details = getProductDetails(key);
+    const available = (typeof details.stock === 'number') ? details.stock : Infinity;
+    const currentQty = cart[key] || 0;
+    if (currentQty + 1 > available) {
+        notifyError(`Only ${available} left in stock for ${key}.`);
+        return;
+    }
 
     if (cart[key]) cart[key] += 1;
     else cart[key] = 1;
@@ -607,16 +706,18 @@ function showCart() {
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'cart-item';
+            const incDisabled = (typeof details.stock === 'number' && quantity >= details.stock) ? 'disabled' : '';
             itemDiv.innerHTML = `
                 <div class="cart-item-details">
                     <h4>${details.name}</h4>
                     <p>${details.description || ''}</p>
+                    <div class="stock-remaining">In stock: ${(typeof details.stock === 'number') ? details.stock : 'N/A'}</div>
                     <span class="cart-item-price">${details.priceStr} x ${quantity} = ${formatPrice(itemTotal)}</span>
                 </div>
                 <div class="quantity-controls">
                     <button class="btn qty-btn" onclick="changeQuantity('${escapeForJs(productKey)}', -1)">-</button>
                     <span>${quantity}</span>
-                    <button class="btn qty-btn" onclick="changeQuantity('${escapeForJs(productKey)}', 1)">+</button>
+                    <button class="btn qty-btn" ${incDisabled} onclick="changeQuantity('${escapeForJs(productKey)}', 1)">+</button>
                     <button class="btn remove-btn" onclick="removeFromCart('${escapeForJs(productKey)}')">Remove</button>
                 </div>
             `;
@@ -632,6 +733,17 @@ function changeQuantity(productKey, delta) {
     const key = productKey;
     const prevTotal = Object.values(cart).reduce((s, v) => s + v, 0);
     if (!cart[key]) return;
+
+    // If increasing, check stock first
+    if (delta > 0) {
+        const details = getProductDetails(key);
+        const available = (typeof details.stock === 'number') ? details.stock : Infinity;
+        if (cart[key] + delta > available) {
+            notifyError(`Only ${available} left in stock for ${key}.`);
+            return;
+        }
+    }
+
     cart[key] += delta;
     if (cart[key] <= 0) delete cart[key];
     localStorage.setItem('cart', JSON.stringify(cart));
@@ -672,7 +784,10 @@ function computeCartTotal() {
     return total;
 }
 
+// Replace existing initiateCardPayment() and checkout() with these versions.
+
 // Initiate paying with Paystack (opens cart then checkout)
+// This remains the same entry point but ensures checkout() is called after showing cart.
 function initiateCardPayment() {
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty! Add items before paying.');
@@ -695,35 +810,61 @@ function checkout() {
     // Create a snapshot so modifications during payment don't affect the record
     const checkoutSnapshot = JSON.parse(JSON.stringify(cart));
 
+    // Build items array from snapshot (used both locally and as metadata)
+    const items = [];
+    let paymentTotal = 0;
+    for (const productKey in checkoutSnapshot) {
+        const details = getProductDetails(productKey);
+        const quantity = checkoutSnapshot[productKey];
+        const itemTotal = details.unit_price * quantity;
+        paymentTotal += itemTotal;
+        items.push({
+            name: details.name,
+            description: details.description,
+            unit_price: details.priceStr,
+            quantity,
+            item_total: formatPrice(itemTotal)
+        });
+    }
+
+    // Compose a compact string for metadata (Paystack dashboard shows metadata / custom_fields)
+    const itemsSummary = items.map(i => `${i.name} x${i.quantity}`).join(' ; ');
+
+    // NOTE: for production, collect real customer email and name before checkout and pass them below.
+    const customerEmail = 'customer@example.com';
+    const customerName = 'Paystack Customer';
+
     const handler = PaystackPop.setup({
         key: paystackPublicKey,
-        email: 'customer@example.com', // For production, collect the real customer email before calling
+        email: customerEmail,
         amount: amountInKobo,
         currency: 'NGN',
         ref: 'PS_' + Math.floor((Math.random() * 1000000000) + 1),
+        // Add metadata so product names are visible in Paystack transaction details and webhooks
+        metadata: {
+            // You can include a JSON string, or use custom_fields for nicer display in the dashboard
+            // Custom fields are shown under "Metadata" in Paystack transaction details
+            custom_fields: [
+                {
+                    display_name: "Items",
+                    variable_name: "items",
+                    value: itemsSummary
+                },
+                {
+                    display_name: "Order Summary (total)",
+                    variable_name: "order_summary",
+                    value: formatPrice(paymentTotal)
+                }
+            ],
+            // Also include raw JSON if you prefer (be mindful of size limits)
+            items_json: JSON.stringify(items)
+        },
         callback: function(response) {
             alert('Payment successful! Reference: ' + response.reference);
 
-            // Build items array from snapshot
-            const items = [];
-            let paymentTotal = 0;
-            for (const productKey in checkoutSnapshot) {
-                const details = getProductDetails(productKey);
-                const quantity = checkoutSnapshot[productKey];
-                const itemTotal = details.unit_price * quantity;
-                paymentTotal += itemTotal;
-                items.push({
-                    name: details.name,
-                    description: details.description,
-                    unit_price: details.priceStr,
-                    quantity,
-                    item_total: formatPrice(itemTotal)
-                });
-            }
-
             const paymentOrder = {
-                name: 'Paystack Customer',
-                email: 'customer@example.com',
+                name: customerName,
+                email: customerEmail,
                 phone: '',
                 cart: items,
                 total: formatPrice(paymentTotal),

@@ -12,9 +12,16 @@
         <div class="container">
             <button class="country-btn" aria-label="Change country"> <img src="https://flagcdn.com/w20/ng.png" alt="Nigeria"> NG </button>
             
-            <img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo" width="300px" height="200px">
+            <img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo">
             <nav>
                 <ul>
+                    <!-- Mobile search: appears at top of hamburger menu on small screens -->
+                    <li class="mobile-search" aria-hidden="true">
+                      <form id="mobile-search-form" onsubmit="return false;" class="mobile-search-form">
+                        <input id="mobile-search-input" type="text" placeholder="Search products..." aria-label="Search products" class="mobile-search-input">
+                        <button id="mobile-search-btn" class="btn mobile-search-btn" type="button">🔍</button>
+                      </form>
+                    </li>
                     <li><a href="#home"><b>Home</b></a></li>
                     <li><a href="#products"><b>Products</b></a></li>
                     <li><a href="#payment"><b>Payment</b></a></li>
@@ -36,7 +43,7 @@
 
     <section id="home" class="hero">
         <div class="container">
-            <h2><br><b>Welcome to Cympet and Co. Nigeria Enterprises.</b></h2>
+            <h2><b>Welcome to Cympet and Co. Nigeria Enterprises.</b></h2>
             <p>Discover the latest in electronics technology. From cutting-edge gadgets to essential accessories, we have everything you need.</p>
             <a href="#products" class="btn">Explore Products</a>
         </div>
@@ -158,6 +165,19 @@
         <div class="container">
             <h2>About Us</h2>
             <p>Cympet and Co. Enterprises has been a trusted name in electronics since 2010. We pride ourselves on offering quality products, exceptional customer service, and the latest technology trends.</p>
+
+            <!-- CEO block: responsive photo + short bio -->
+            <div class="ceo">
+                <div class="photo">
+                    <!-- Replace 'ceo-picture.jpg' with your file; falls back to paystack-placeholder.svg if not found -->
+                    <img src="CEO picture.jpg" alt="Cympet CEO and wife" onerror="this.src='CEO-placeholder.svg'">
+                </div>
+                <div class="bio">
+                    <h3>Our CEO & Partner</h3>
+                    <p>Our CEO has led Cympet & Co. since its founding, bringing years of experience in electronics retail, product sourcing, and business operations. He is committed to product quality, fair pricing, and building strong customer relationships.</p>
+                    <p>Working alongside him, his wife oversees customer experience and community outreach, ensuring every customer is treated with care and confidence. Together they lead a family-driven business culture focused on service and long-term value.</p>
+                </div>
+            </div>
         </div>
     </section>
 <!-- Replace your existing <section id="contact" class="contact"> ... </section> with this block -->
@@ -280,6 +300,7 @@
                     <img id="modal-image" src="" alt="Product Image">
                 </div>
                 <p id="modal-description"></p>
+                <div id="modal-price" class="price" style="text-align:center; margin-top:8px;"></div>
                 <div style="display:flex; gap:10px; justify-content:center; margin-top:12px;">
                     <!-- Removed "View Options" button as requested -->
                     <button class="btn" onclick="showSpecs()">View Specifications</button>

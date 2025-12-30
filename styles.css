@@ -23,23 +23,30 @@ body {
 }
 /* Reduced top offset to match the shorter header */
 #home .container {
-    padding-top: 90px; /* previously 120px */
+    padding-top: 180px; /* increased to match taller header */
 }
 
 
 /* Header */
-/* Reduced vertical padding and added a min-height so the header is visually shorter */
+/* Increased vertical padding and min-height so the logo fits in the header */
 header {
     background: linear-gradient(135deg, red 0%, #702f2f 100%);
     color: white;
     opacity: 0.9;
-    padding: 0.25rem 0; /* previously 0.5rem 0 */
+    padding: 0.5rem 0; /* increased padding so the logo has breathing room */
     position: fixed;
     width: 100%;
-    height: fit-content;
-    min-height: 64px; /* new: keeps header compact */
+    height: 140px;
+    min-height: 140px; /* increased to accommodate larger logo */
     top: 0;
     z-index: 1000;
+    transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+/* shadow when scrolled (subtler) */
+header.scrolled {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transform: translateY(0);
 }
 
 /* Make sure the internal layout remains vertically centered with the smaller header */
@@ -50,14 +57,21 @@ header .container {
     gap: 12px;
 }
 
-/* Constrain the logo height to fit in the shorter header.
-   Using !important to override inline width/height attributes in the HTML. */
+/* Constrain the logo height to fit in the header and ensure visibility */
 #logo {
-    height: 56px !important;
-    max-height: 56px;
+    height: 160px !important;
+    max-height: 240px;
     width: auto !important;
     display: block;
     object-fit: contain;
+    margin-left: 8px;
+    z-index: 1001;
+}
+
+/* Reduce logo size on smaller screens so it remains visible */
+@media (max-width: 768px) {
+    #logo { height: 96px !important; max-height: 96px; }
+    header { min-height: 120px; padding: 0.45rem 0; }
 }
 
 .logo h1 {
@@ -193,8 +207,68 @@ nav ul li a:hover {
     color: #ff6b6b;
 }
 
+/* animated underline for nav links */
+nav ul li a {
+    position: relative;
+}
+nav ul li a::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    height: 2px;
+    width: 0;
+    background: #ff6b6b;
+    transition: width 220ms ease;
+}
+nav ul li a:hover::after {
+    width: 100%;
+}
+
+/* Menu open animation: slide + fade, with stagger */
+nav ul.show {
+    animation: navSlideDown 360ms ease-out forwards;
+}
+nav ul.show li {
+    opacity: 0;
+    transform: translateY(-8px);
+    animation: navItemReveal 360ms ease-out forwards;
+}
+nav ul.show li:nth-child(1) { animation-delay: 0ms; }
+nav ul.show li:nth-child(2) { animation-delay: 50ms; }
+nav ul.show li:nth-child(3) { animation-delay: 100ms; }
+nav ul.show li:nth-child(4) { animation-delay: 150ms; }
+nav ul.show li:nth-child(5) { animation-delay: 200ms; }
+nav ul.show li:nth-child(6) { animation-delay: 250ms; }
+
+@keyframes navSlideDown {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes navItemReveal {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hamburger active state (morph into close icon) */
+.hamburger {
+    transition: transform 240ms ease, color 200ms ease;
+    font-weight: 700;
+}
+.hamburger.active {
+    transform: rotate(90deg) scale(1.05);
+    color: #ffd1d1;
+}
+
+/* Navigation backdrop and elevated look when open */
+nav ul.show {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+    -webkit-backdrop-filter: blur(6px) saturate(1.1); /* Safari / WebKit */
+    backdrop-filter: blur(6px) saturate(1.1);
+}
+
+/* Header search hidden visually but left in DOM so JS search still works */
 .search-bar {
-    display: flex;
+    display: none !important;
     align-items: center;
     margin-left: 2rem;
 }
@@ -433,6 +507,55 @@ nav ul li a:hover {
     margin: 0 auto;
 }
 
+/* CEO photo and bio layout */
+.about .ceo {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    max-width: 1000px;
+    margin: 1.5rem auto 0;
+    text-align: left;
+}
+.about .ceo .photo {
+    flex: 0 0 360px;
+    width: 360px;
+    height: 480px; /* taller to better show full portrait */
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.about .ceo .photo img {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain; /* ensure entire vertical image is visible */
+    object-position: center; /* center the image */
+    display: block;
+}
+.about .ceo .bio {
+    flex: 1;
+}
+.about .ceo h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.6rem;
+    color: #333;
+}
+.about .ceo p {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 0.8rem;
+}
+
+@media (max-width: 768px) {
+    .about .ceo { flex-direction: column; text-align: center; }
+    .about .ceo .photo { width: 100%; height: 240px; }
+    .about .ceo .bio { text-align: center; }
+}
 /* Contact section */
 .contact {
     padding: 80px 0;
@@ -735,12 +858,12 @@ footer {
     box-shadow: 0 3px 6px rgba(231, 76, 60, 0.4);
 }
 
-#cart-total {
-    font-size: 1.2rem;
-    font-weight: bold;
-    text-align: center;
-    margin: 1rem 0;
+.stock-remaining {
+    font-size: 0.9rem;
+    color: #333;
+    margin-top: 6px;
 }
+
 
 /* Delivery Modal Styles */
 #delivery-modal .modal-content {
@@ -893,6 +1016,9 @@ footer {
     .search-bar {
         display: none;
     }
+
+    /* mobile-only search item inside hamburger menu (hidden on desktop) */
+    .mobile-search { display: none; }
     
     .hamburger {
         display: block;
@@ -906,6 +1032,8 @@ footer {
         width: 100%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: none;
+        gap: 0.5rem;
+        padding: 0.5rem 0;
     }
     
     nav ul.show {
@@ -916,6 +1044,40 @@ footer {
         margin: 0;
         text-align: center;
         padding: 1rem 0;
+    }
+
+    /* mobile search controls when menu is open */
+    .mobile-search {
+        display: flex;
+        padding: 0.75rem 1rem;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+    .mobile-search .mobile-search-form {
+        display:flex;
+        gap:8px;
+        align-items:center;
+        width:100%;
+    }
+    .mobile-search .mobile-search-input {
+        flex: 1;
+        width: 100%;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+        border: 1px solid rgba(0,0,0,0.12);
+        font-size: 1rem;
+        background: #fff;
+        color: #222;
+    }
+    .mobile-search .mobile-search-btn {
+        padding: 0.5rem 0.8rem;
+        border-radius: 6px;
+        background: #fff;
+        color: #222;
+        border: 1px solid rgba(0,0,0,0.08);
+        margin-left: 8px;
+        cursor: pointer;
     }
     
     .contact-content {
@@ -1267,5 +1429,85 @@ footer {
   }
   .btn.primary, .btn.ghost {
     width: 100%;
+  }
+}
+/* Strong continuous red glow for hero heading */
+.hero h2 {
+  color: #fff !important;
+  /* Replace any previous animation with a red glow pulse */
+  animation: hero-red-glow 2.8s ease-in-out infinite;
+  -webkit-animation: hero-red-glow 2.8s ease-in-out infinite;
+  /* baseline glow so it's visible between pulses */
+  text-shadow:
+    0 0 8px rgba(220,20,60,0.45),
+    0 0 18px rgba(220,20,60,0.28),
+    0 8px 28px rgba(0,0,0,0.22);
+}
+
+/* Keyframes: pulse the intensity of the red glow and gently lift the heading */
+@keyframes hero-red-glow {
+  0% {
+    text-shadow:
+      0 0 6px rgba(220,20,60,0.45),
+      0 0 16px rgba(220,20,60,0.28),
+      0 6px 22px rgba(0,0,0,0.18);
+    transform: translateY(0) scale(1);
+    filter: none;
+  }
+  50% {
+    text-shadow:
+      0 0 22px rgba(220,20,60,0.96),
+      0 0 48px rgba(220,20,60,0.6),
+      0 14px 48px rgba(220,20,60,0.08);
+    transform: translateY(-3px) scale(1.02);
+    filter: drop-shadow(0 6px 20px rgba(220,20,60,0.18));
+  }
+  100% {
+    text-shadow:
+      0 0 6px rgba(220,20,60,0.45),
+      0 0 16px rgba(220,20,60,0.28),
+      0 6px 22px rgba(0,0,0,0.18);
+    transform: translateY(0) scale(1);
+    filter: none;
+  }
+}
+
+/* WebKit prefix for keyframes for older Safari support */
+@-webkit-keyframes hero-red-glow {
+  0% {
+    text-shadow:
+      0 0 6px rgba(220,20,60,0.45),
+      0 0 16px rgba(220,20,60,0.28),
+      0 6px 22px rgba(0,0,0,0.18);
+    -webkit-transform: translateY(0) scale(1);
+    filter: none;
+  }
+  50% {
+    text-shadow:
+      0 0 22px rgba(220,20,60,0.96),
+      0 0 48px rgba(220,20,60,0.6),
+      0 14px 48px rgba(220,20,60,0.08);
+    -webkit-transform: translateY(-3px) scale(1.02);
+    filter: drop-shadow(0 6px 20px rgba(220,20,60,0.18));
+  }
+  100% {
+    text-shadow:
+      0 0 6px rgba(220,20,60,0.45),
+      0 0 16px rgba(220,20,60,0.28),
+      0 6px 22px rgba(0,0,0,0.18);
+    -webkit-transform: translateY(0) scale(1);
+    filter: none;
+  }
+}
+
+/* Respect users' reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .hero h2 {
+    animation: none !important;
+    -webkit-animation: none !important;
+    transform: none !important;
+    text-shadow:
+      0 0 8px rgba(220,20,60,0.40),
+      0 0 14px rgba(220,20,60,0.22);
   }
 }

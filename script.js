@@ -467,7 +467,7 @@ const productVariants = {
 
 // Catalog entries used when user adds the displayed product card items directly to cart
 const productCatalog = {
-    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100,000', unit_price: 100000, stock: 8 },
+    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100', unit_price: 100, stock: 8 },
     'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12 },
     'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18 },
     'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },

@@ -827,7 +827,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
       productsArea.appendChild(grid);
       if (scroll) {
-        try { productsArea.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
+        try {
+          // Scroll so the first product fits nicely below the fixed header
+          const firstCard = grid.querySelector('.product-card') || grid;
+          const header = document.querySelector('header');
+          const headerHeight = header ? header.offsetHeight : 0;
+          const extraPadding = 12; // px spacing below header
+          const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const targetY = Math.max(0, window.pageYOffset + firstCard.getBoundingClientRect().top - headerHeight - extraPadding);
+          window.scrollTo({ top: targetY, behavior: prefersReduced ? 'auto' : 'smooth' });
+
+          // For keyboard users, make the first card focusable and focus it
+          firstCard.setAttribute('tabindex', '-1');
+          try { firstCard.focus(); } catch (err) { /* ignore */ }
+        } catch (e) { }
       }
     }
 
@@ -1366,9 +1379,13 @@ if (checkoutPayBtn) {
         const customerInfo = { name, phone, email };
         localStorage.setItem('customerInfo', JSON.stringify(customerInfo));
 
-        // hide modal and initiate Paystack checkout with customer info
+        // read selected delivery type from the form (defaults to delivery)
+        const deliveryTypeEl = document.querySelector('input[name="checkout-delivery-type"]:checked');
+        const deliveryType = (deliveryTypeEl && deliveryTypeEl.value) ? deliveryTypeEl.value : 'delivery';
+
+        // hide modal and initiate Paystack checkout with customer info and delivery type
         checkoutModal.style.display = 'none';
-        checkout(customerInfo);
+        checkout(customerInfo, deliveryType);
     });
 }
 
@@ -1387,7 +1404,7 @@ function initiateCardPayment() {
     showCheckoutModal();
 }
 
-function checkout(customerInfo = {}) {
+function checkout(customerInfo = {}, deliveryType = 'delivery') {
     const totalNGN = computeCartTotal();
     if (totalNGN <= 0) {
         alert('Cart total is zero. Add items before checkout.');
@@ -1456,6 +1473,11 @@ function checkout(customerInfo = {}) {
                     display_name: "Customer Email",
                     variable_name: "customer_email",
                     value: customerEmail
+                },
+                {
+                    display_name: "Delivery Type",
+                    variable_name: "delivery_type",
+                    value: (deliveryType === 'pickup' ? 'Pickup' : 'Home Delivery')
                 }
             ],
             items_json: JSON.stringify(items)
@@ -1472,7 +1494,8 @@ function checkout(customerInfo = {}) {
                 timestamp: new Date().toISOString(),
                 orderId: 'PS_' + response.reference,
                 payment_reference: response.reference,
-                payment_method: 'Paystack'
+                payment_method: 'Paystack',
+                delivery_type: (deliveryType === 'pickup' ? 'pickup' : 'delivery')
             };
 
             // store paid order locally for receipts

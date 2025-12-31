@@ -325,11 +325,6 @@
             <h2>Payment Options</h2>
             <p>We accept secure payments through Paystack to ensure your shopping experience is safe and convenient.</p>
             <div class="payment-methods">
-                <div class="payment-method" onclick="initiateCardPayment()">
-                   
-                    <img src="paystack-placeholder.svg" alt="Paystack" style="height: 40px;">
-                    <p>Pay with Paystack</p>
-                </div>
                 <div class="payment-method" onclick="initiateCashOnDelivery()">
                     <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #972768;"></i>
                     <p>Home Delivery</p>
@@ -483,6 +478,14 @@
           <div class="form-group">
             <label for="checkout-email">Email address</label>
             <input type="email" id="checkout-email" name="email">
+          </div>
+
+          <div class="form-group">
+            <label>Delivery Option *</label>
+            <div style="display:flex; gap:12px; align-items:center;">
+              <label style="font-weight:600;"><input type="radio" name="checkout-delivery-type" value="delivery" checked style="margin-right:8px;"> Home Delivery</label>
+              <label style="font-weight:600;"><input type="radio" name="checkout-delivery-type" value="pickup" style="margin-right:8px;"> Pickup (Pay Now)</label>
+            </div>
           </div>
 
           <div style="display:flex; gap:10px; margin-top:12px;">

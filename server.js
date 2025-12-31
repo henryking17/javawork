@@ -6,6 +6,7 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 app.use(cookieParser());
 const path = require('path');
 // Serve static frontend files
@@ -57,20 +58,31 @@ app.post('/api/auth/google', async (req, res) => {
     const infoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(id_token)}`);
     const info = infoRes.data;
 
-    // validate audience
-    if (info.aud !== GOOGLE_CLIENT_ID) return res.status(401).json({ error: 'Token client_id not recognized' });
+    // debug log useful during development
+    console.log('Google token info:', { aud: info.aud, email: info.email, verified: info.email_verified });
+
+    // validate audience (handle string or array)
+    const aud = info.aud;
+    const audOk = aud === GOOGLE_CLIENT_ID || (Array.isArray(aud) && aud.includes(GOOGLE_CLIENT_ID));
+    if (!audOk) return res.status(401).json({ error: 'Token audience mismatch', aud });
+
+    // optional: require email verified (you can relax this if you prefer)
+    if (info.email_verified === 'false' || info.email_verified === false) {
+      console.warn('Google email not verified for', info.email);
+      // continue but inform client
+    }
 
     // create a small session JWT
-    const jwt = require('jsonwebtoken');
     const payload = { sub: info.sub, email: info.email, name: info.name, picture: info.picture };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
-    // set cookie (httpOnly)
+    // set cookie (httpOnly). For production, set secure: true and proper domain
     res.cookie('session', token, { httpOnly: true, sameSite: 'lax' });
     res.json({ ok: true, user: payload });
   } catch (err) {
-    console.error('Google auth error', err?.response?.data || err.message || err);
-    res.status(401).json({ error: 'Invalid token' });
+    console.error('Google auth error:', err.response ? err.response.data : err.message || err);
+    const details = err.response && err.response.data ? (err.response.data.error_description || err.response.data.error || JSON.stringify(err.response.data)) : err.message;
+    res.status(401).json({ error: 'Invalid token', details });
   }
 });
 

@@ -626,11 +626,16 @@
     try{
       const id_token = response.credential;
       console.log('got id_token');
-      const r = await fetch('/api/auth/google', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_token }) });
-      if (!r.ok) { const err = await r.json(); console.error('Auth error', err); alert('Sign-in failed'); return; }
-      const data = await r.json();
+      const r = await fetch('/api/auth/google', { method:'POST', credentials: 'same-origin', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_token }) });
+      const body = await r.json().catch(()=>null);
+      if (!r.ok) {
+        console.error('Auth error', body || r.statusText);
+        alert('Sign-in failed: ' + (body && (body.error || body.details) ? (body.error + ' - ' + (body.details || '')) : r.statusText));
+        return;
+      }
+      const data = body;
       renderUser(data.user);
-    }catch(e){ console.error(e); alert('Sign-in failed'); }
+    }catch(e){ console.error(e); alert('Sign-in failed: ' + (e.message || e)); }
   }
 
   async function renderUser(user){
@@ -642,7 +647,7 @@
     }
     auth.innerHTML = `<div class="auth-profile"><img src="${user.picture}" alt="" class="auth-avatar"/><span class="auth-name">${user.name}</span><button id="signout-btn" class="btn small">Sign out</button></div>`;
     document.getElementById('signout-btn').addEventListener('click', async ()=>{
-      await fetch('/api/logout', { method:'POST' });
+      await fetch('/api/logout', { method:'POST', credentials: 'same-origin' });
       renderUser(null);
     });
   }
@@ -650,7 +655,7 @@
   // Try to restore session on page load
   (async function(){
     try{
-      const r = await fetch('/api/me');
+      const r = await fetch('/api/me', { credentials: 'same-origin' });
       if (r.ok){ const j = await r.json(); renderUser(j.user); }
       else { renderUser(null); }
     }catch(e){ renderUser(null); }

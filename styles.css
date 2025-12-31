@@ -311,14 +311,6 @@ nav ul.show {
     margin-left: 1rem;
 }
 
-/* Auth area */
-.auth-area { color: white; display:flex; align-items:center; gap:8px; margin-left: 10px; }
-.auth-profile { display:flex; align-items:center; gap:8px; }
-.auth-avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; }
-.auth-name { font-size:0.95rem; font-weight:600; }
-.auth-area .btn.small { padding:6px 8px; font-size:0.85rem; }
-
-
 .cart-icon:hover {
     color: #ff6b6b;
 }

@@ -68,9 +68,6 @@
             <div class="cart-icon" onclick="showCart()">
                 🛒 <span id="cart-count">0</span>
             </div>
-
-            <!-- Auth area (Google sign-in status) -->
-            <div id="auth-area" class="auth-area" aria-live="polite"></div>
         </div>
     </header>
 
@@ -600,67 +597,12 @@
         </div>
     </div>
 
-   <!-- Load Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
-
-<script>
-  window.onload = function () {
-    google.accounts.id.initialize({
-      client_id: "197636188354-2nrc48grt63t2dpj4jcs332oonrt3sor.apps.googleusercontent.com",
-      callback: handleCredentialResponse
-    });
-
-    // Ensure there's a sign-in button in the header auth area
-    function ensureSignInButton(){
-      const auth = document.getElementById('auth-area');
-      if(!auth) return;
-      if(!auth.querySelector('#googleSignInDiv')) auth.innerHTML = '<div id="googleSignInDiv"></div>';
-      google.accounts.id.renderButton(document.getElementById("googleSignInDiv"), { theme: "outline", size: "large" });
-    }
-
-    ensureSignInButton();
-  };
-
-  async function handleCredentialResponse(response) {
-    try{
-      const id_token = response.credential;
-      console.log('got id_token');
-      const r = await fetch('/api/auth/google', { method:'POST', credentials: 'same-origin', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ id_token }) });
-      const body = await r.json().catch(()=>null);
-      if (!r.ok) {
-        console.error('Auth error', body || r.statusText);
-        alert('Sign-in failed: ' + (body && (body.error || body.details) ? (body.error + ' - ' + (body.details || '')) : r.statusText));
-        return;
-      }
-      const data = body;
-      renderUser(data.user);
-    }catch(e){ console.error(e); alert('Sign-in failed: ' + (e.message || e)); }
-  }
-
-  async function renderUser(user){
-    const auth = document.getElementById('auth-area');
-    if(!user) {
-      auth.innerHTML = '<div id="googleSignInDiv"></div>';
-      try{ if (window.google && google.accounts && google.accounts.id) google.accounts.id.renderButton(document.getElementById('googleSignInDiv'), { theme: 'outline', size: 'large' }); }catch(e){}
-      return;
-    }
-    auth.innerHTML = `<div class="auth-profile"><img src="${user.picture}" alt="" class="auth-avatar"/><span class="auth-name">${user.name}</span><button id="signout-btn" class="btn small">Sign out</button></div>`;
-    document.getElementById('signout-btn').addEventListener('click', async ()=>{
-      await fetch('/api/logout', { method:'POST', credentials: 'same-origin' });
-      renderUser(null);
-    });
-  }
-
-  // Try to restore session on page load
-  (async function(){
-    try{
-      const r = await fetch('/api/me', { credentials: 'same-origin' });
-      if (r.ok){ const j = await r.json(); renderUser(j.user); }
-      else { renderUser(null); }
-    }catch(e){ renderUser(null); }
-  })();
-</script>
+    <script>
+      
+      // To enable real newsletter signups via Web3Forms, set your access key here or in a separate script.
+      // Example: window.NEWSLETTER_ACCESS_KEY = 'your-web3forms-access-key';
+      // You can get an access key from https://web3forms.com/ (or leave blank to use localStorage fallback).
+    </script>
 
     <script src="script.js"></script>
     

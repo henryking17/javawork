@@ -23,20 +23,11 @@ This website uses Paystack for secure card payments. To set up payments:
 
 ## Usage
 
-1. Install dependencies and start the server (so Google sign-in and APIs work):
-   - npm install
-   - npm start
-2. Open http://localhost:5000 in your browser to view the site.
-3. Sign in with Google using the button in the header. The server verifies the token and creates a session cookie.
-
-**Environment**
-- You may set these env vars in a `.env` file:
-  - `GOOGLE_CLIENT_ID` (optional; defaults to the client id embedded in the page)
-  - `SESSION_SECRET` (optional; default is a dev secret; set a strong value for production)
-
-4. Browse featured products and add items to cart.
-5. Click on Visa or Mastercard payment options to initiate checkout via Paystack.
-6. Fill out the contact form to send messages.
+1. Open `index.html` in your web browser to view the website.
+2. Navigate through the sections using the header menu.
+3. Browse featured products and add items to cart.
+4. Click on Visa or Mastercard payment options to initiate checkout via Paystack.
+5. Fill out the contact form to send messages.
 
 ## Files
 

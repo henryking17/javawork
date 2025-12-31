@@ -35,6 +35,28 @@
                 <input type="text" id="search-input" placeholder="Search products...">
                 <button id="search-btn">🔍 Search</button>
             </div>
+            <div class="auth-area" id="auth-area">
+                <button id="notif-toggle" class="btn ghost" aria-expanded="false" style="position:relative; margin-right:8px">🔔 <span id="notif-count" style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 6px;font-size:12px;display:none;position:absolute;top:-8px;right:-10px">0</span></button>
+                <div id="notif-dropdown" style="display:none; position:absolute; right:10px; top:60px; background:#fff; border:1px solid #eee; box-shadow:0 6px 18px rgba(0,0,0,0.08); width:320px; max-height:360px; overflow:auto; border-radius:8px; z-index:50;">
+                  <div style="padding:12px; border-bottom:1px solid #f3f4f6;"><strong>Notifications</strong></div>
+                  <div id="notif-list" style="padding:8px;"><div style="color:#6b7280;">Loading…</div></div>
+                  <div style="padding:10px; border-top:1px solid #f3f4f6; text-align:center; display:flex; gap:8px; justify-content:center; align-items:center;">
+                    <a href="notifications.html" style="color:#dc143c; text-decoration:none; font-weight:600">View all notifications</a>
+                    <button id="notif-mark-all" class="btn ghost" style="padding:6px 10px;">Mark all read</button>
+                  </div>
+                </div>
+                <button id="auth-toggle" class="btn ghost golden" aria-expanded="false">Account ▾</button>
+                <div id="auth-controls" class="auth-controls" style="display:none;">
+                    <div id="auth-buttons">
+                        <button class="btn" id="signin-btn">Sign In</button>
+                        <button class="btn ghost" id="signup-btn">Sign Up</button>
+                    </div>
+                    <div id="user-display" style="display:none; align-items:center; gap:8px;">
+                        <span id="user-name"></span>
+                        <button id="signout-btn" class="btn ghost">Sign Out</button>
+                    </div>
+                </div>
+            </div>
             <div class="cart-icon" onclick="showCart()">
                 🛒 <span id="cart-count">0</span>
             </div>
@@ -285,22 +307,86 @@
             <div class="payment-methods">
                 <div class="payment-method" onclick="initiateCardPayment()">
                    
-                    <img src="paystack-placeholder.svg" alt="Paystack" style="height: 40px;">
+                    <img src="https://th.bing.com/th/id/R.4fa03df8ec5f0228337898f5455ca48a?rik=Vu9O0Vk1ymJTlg&pid=ImgRaw&r=0" alt="Paystack" >
                     <p>Pay with Paystack</p>
                 </div>
                 <div class="payment-method" onclick="initiateCashOnDelivery()">
-                    <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #972768;"></i>
+                    <img src="https://images.rawpixel.com/image_png_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDI0LTA3L3dvcmxkZmFjZXNsYWJfM2RfY2hhcmFjdGVyX2lsbHVzdHJhdGlvbl9pc29sYXRlZF9pbl93aGl0ZV9iYWNrZ180YjBmNjZmMC1kYzJlLTRmNzYtYjEzMy05ZTg4ZmI3YWYyMGUucG5n.png" alt="delivery">
                     <p>Home Delivery</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Cympet and Co. Enterprises. All rights reserved.</p>
+    <footer class="site-footer">
+        <div class="container footer-top">
+            <div class="footer-col about">
+                <img src="Copilot_20251226_202609.png" alt="Cympet logo" class="footer-logo">
+                <p><strong>Cympet and Co. Enterprises</strong> — trusted electronics retailer since 2010. We offer quality products at fair prices, trusted delivery across Nigeria and friendly customer service. Shop air conditioners, generators, refrigerators, sound systems and more.</p>
+                <div class="trust-badges" aria-hidden="true">
+                    <img src="https://img.icons8.com/color/48/000000/verified-account.png" alt="Trusted Seller" title="Trusted Seller">
+                    <img src="https://img.icons8.com/color/48/000000/shield.png" alt="Secure payments" title="Secure payments">
+                    <img src="https://img.icons8.com/color/48/000000/customer-support.png" alt="Support" title="Customer support">
+                </div>
+            </div>
+
+            <div class="footer-col links">
+                <h4>Shop by category</h4>
+                <ul>
+                    <li><a href="#products">Air Conditioners</a></li>
+                    <li><a href="#products">Generators</a></li>
+                    <li><a href="#products">Refrigerators</a></li>
+                    <li><a href="#products">Sound Systems</a></li>
+                    <li><a href="#products">Fans & Blenders</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col support">
+                <h4>Customer Care</h4>
+                <ul>
+                    <li><a href="#contact">Contact Us</a></li>
+                    <li><a href="#receipts">Track Order</a></li>
+                    <li><a href="#payment">Payment & Returns</a></li>
+                    <li><a href="#about">About Us</a></li>
+                    <li><a href="#">FAQ</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col apps">
+                <h4>Download our app</h4>
+                <div class="app-badges">
+                    <a href="#" aria-label="Google Play"><img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play badge"></a>
+                    <a href="#" aria-label="App Store"><img src="https://upload.wikimedia.org/wikipedia/commons/3/31/Download_on_the_App_Store_Badge.svg" alt="App Store badge"></a>
+                </div>
+
+                <h4 style="margin-top:12px;">Newsletter</h4>
+                <form id="footer-newsletter" onsubmit="event.preventDefault(); alert('Thanks for subscribing!');" class="newsletter">
+                    <input type="email" placeholder="Your email address" required aria-label="Email for newsletter">
+                    <button class="btn" type="submit">Subscribe</button>
+                </form>
+
+                <div class="socials" aria-label="Follow us">
+                    <a href="#" aria-label="Facebook">📘</a>
+                    <a href="#" aria-label="Instagram">📸</a>
+                    <a href="#" aria-label="Twitter">🐦</a>
+                    <a href="#" aria-label="WhatsApp">💬</a>
+                </div>
+            </div>
         </div>
-    </footer>
+
+        <div class="container footer-bottom">
+            <div class="legal">
+                <p>© 2025 Cympet and Co. Enterprises. All rights reserved. <a href="#">Terms</a> · <a href="#">Privacy</a> · <a href="#">Sitemap</a></p>
+                <p class="small">Shipping times may vary by location. Prices are subject to change.</p>
+            </div>
+
+            <div class="payments" aria-hidden="true">
+                <img src="https://img.icons8.com/color/48/000000/mastercard.png" alt="Mastercard">
+                <img src="https://img.icons8.com/color/48/000000/visa.png" alt="Visa">
+                <img src="https://img.icons8.com/color/48/000000/paystack.png" alt="Paystack">
+            </div>
+        </div>
+    </footer>    
 
     <!-- Product modal (show details and specifications only) -->
     <div id="product-modal" class="modal" aria-hidden="true">
@@ -446,6 +532,57 @@
             <img id="lightbox-image" src="" alt="Enlarged product image" style="max-width:100%; max-height:80vh; display:block; margin:0 auto;">
         </div>
     </div>
+
+        <!-- Auth modal: sign in / sign up -->
+        <div id="auth-modal" class="modal" aria-hidden="true">
+            <div class="modal-content" style="max-width:520px;">
+                <span class="close" id="auth-modal-close">&times;</span>
+                <div id="auth-forms">
+                    <div id="auth-tabs" style="display:flex; gap:8px; margin-bottom:12px;">
+                        <button id="tab-signin" class="btn">Sign In</button>
+                        <button id="tab-signup" class="btn ghost">Sign Up</button>
+                    </div>
+
+                    <form id="signin-form" style="display:block;">
+                        <div class="form-group">
+                            <label>Email or Mobile</label>
+                            <input type="text" id="signin-identifier" placeholder="you@example.com or +234..." required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="signin-password" placeholder="Password" required>
+                        </div>
+                        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+                            <button type="submit" class="btn">Sign In</button>
+                        </div>
+                        <div id="signin-msg" style="margin-top:8px; color:#c0392b;"></div>
+                    </form>
+
+                    <form id="signup-form" style="display:none;">
+                        <div class="form-group">
+                            <label>Full name</label>
+                            <input type="text" id="signup-name" placeholder="Full name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email (optional)</label>
+                            <input type="email" id="signup-email" placeholder="you@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Mobile (optional)</label>
+                            <input type="tel" id="signup-phone" placeholder="+234...">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="signup-password" placeholder="Create a password" required>
+                        </div>
+                        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+                            <button type="submit" class="btn">Create Account</button>
+                        </div>
+                        <div id="signup-msg" style="margin-top:8px; color:#c0392b;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
     <script src="script.js"></script>
     

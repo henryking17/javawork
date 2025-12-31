@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin — Access Requests</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px;background:#f7fafc;color:#111827}
+    .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 6px 18px rgba(16,24,40,0.06);max-width:1000px;margin:0 auto}
+    .req{border-bottom:1px solid #eef2f7;padding:12px 0}
+    .meta{color:#6b7280;font-size:13px}
+    .actions{display:flex;gap:8px;margin-top:8px}
+    .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+    .btn.primary{background:#dc143c;color:#fff}
+    .btn.ghost{background:transparent;border:1px solid #e5e7eb}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Access Requests</h1>
+    <p class="meta">Review requests from users who asked for access to receipts.</p>
+    <div id="content">Loading…</div>
+  </div>
+
+  <script>
+    function setStatus(msg){ const c = document.getElementById('content'); c.innerHTML = '<p class="meta">'+msg+'</p>'; }
+
+    async function fetchRequests() {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        // redirect to sign-in
+        window.location = 'index.html?openAuth=signin&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        return;
+      }
+      try {
+        const res = await fetch('http://localhost:5000/api/access-requests', { headers: { 'Authorization': 'Bearer ' + token } });
+        const j = await res.json();
+        if (!j || !j.success) { setStatus('Failed to fetch requests: ' + (j && j.message ? j.message : 'Unknown')); return; }
+        renderList(j.requests || []);
+      } catch (err) { setStatus('Network error: ' + err.message); }
+    }
+
+    function renderList(list) {
+      const container = document.getElementById('content');
+      if (!list.length) { container.innerHTML = '<p class="meta">No access requests.</p>'; return; }
+      container.innerHTML = '';
+      list.forEach(r => {
+        const el = document.createElement('div'); el.className = 'req';
+        el.innerHTML = `<div><strong>${r.id}</strong> — Order <code>${r.orderId}</code> <span class="meta">by ${r.userId} • ${new Date(r.timestamp).toLocaleString()}</span></div>
+                        <div style="margin-top:6px">${(r.message||'').replace(/\n/g,'<br>')}</div>
+                        <div class="meta">Status: ${r.status}${r.resolvedAt ? (' • resolved at ' + new Date(r.resolvedAt).toLocaleString()) : ''}</div>
+                        <div class="actions" id="actions-${r.id}"></div>`;
+        container.appendChild(el);
+
+        const actions = document.getElementById('actions-' + r.id);
+        if (r.status === 'open') {
+          const approve = document.createElement('button'); approve.className = 'btn primary'; approve.textContent = 'Approve';
+          const deny = document.createElement('button'); deny.className = 'btn ghost'; deny.textContent = 'Deny';
+          actions.appendChild(approve); actions.appendChild(deny);
+          approve.addEventListener('click', () => resolveRequest(r.id, 'approved'));
+          deny.addEventListener('click', () => resolveRequest(r.id, 'denied'));
+        } else {
+          if (r.status === 'approved') {
+            actions.innerHTML = '<span class="meta">Request approved' + (r.resolvedBy ? (' by ' + r.resolvedBy) : '') + '</span>';
+            const viewBtn = document.createElement('button'); viewBtn.className = 'btn'; viewBtn.textContent = 'View Receipt';
+            actions.appendChild(viewBtn);
+            viewBtn.addEventListener('click', () => { window.open('receipt.html?orderId=' + encodeURIComponent(r.orderId), '_blank'); });
+          } else {
+            actions.innerHTML = '<span class="meta">Request ' + r.status + (r.resolvedBy ? (' by ' + r.resolvedBy) : '') + '</span>';
+          }
+        }
+      });
+    }
+
+    async function resolveRequest(id, status) {
+      const token = localStorage.getItem('authToken');
+      if (!token) return alert('Not signed in');
+      const note = prompt('Optional note to send to requester (e.g., Approved because ...):') || '';
+      try {
+        const res = await fetch('http://localhost:5000/api/access-requests/' + encodeURIComponent(id) + '/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ status, note }) });
+        const j = await res.json();
+        if (!j || !j.success) return alert('Failed: ' + (j && j.message ? j.message : 'Unknown'));
+        if (j.emailResult) {
+          if (j.emailResult.success) alert('Notification email sent to requester.');
+          else if (j.emailResult.simulated) alert('SMTP not configured — email not sent (simulated).');
+          else alert('Email send failed: ' + (j.emailResult.error || 'Unknown'));
+        }
+        fetchRequests();
+      } catch (err) { alert('Network error: ' + err.message); }
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchRequests);
+  </script>
+</body>
+</html>

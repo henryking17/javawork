@@ -53,52 +53,126 @@
         root.innerHTML = '<div style="color:#9ca3af;">No order specified.</div>';
         return;
       }
+
+      // If user has an auth token, try server-side lookup (protected)
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        fetch('http://localhost:5000/api/receipts/' + encodeURIComponent(orderId), { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(r => r.json())
+          .then(json => {
+            if (!json || !json.success) {
+              if (json) {
+                // Authenticated but not owner
+                if (json.message === 'Forbidden') {
+                  // show request access UI
+                  root.innerHTML = `
+                    <div style="color:#9ca3af;">You don't have permission to view this receipt.</div>
+                    <div style="margin-top:8px;">
+                      <textarea id="access-msg" placeholder="Optional message to the store (e.g., I purchased this order on ...)" style="width:100%;min-height:60px"></textarea>
+                      <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                        <button id="requestAccessBtn" class="btn">Request Access</button>
+                        <span id="requestStatus" style="color:#6b7280;"></span>
+                      </div>
+                    </div>
+                  `;
+                  const btn = document.getElementById('requestAccessBtn');
+                  if (btn) btn.addEventListener('click', () => {
+                    const m = document.getElementById('access-msg') ? document.getElementById('access-msg').value : '';
+                    const token = localStorage.getItem('authToken');
+                    const statusEl = document.getElementById('requestStatus');
+                    if (statusEl) statusEl.textContent = 'Sending request...';
+                    fetch('http://localhost:5000/api/receipt-access-request', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ orderId, message: m }) })
+                      .then(r => r.json()).then(resj => {
+                        if (resj && resj.success) {
+                          if (statusEl) statusEl.textContent = 'Request submitted. Store will review it.';
+                        } else {
+                          if (statusEl) statusEl.textContent = (resj && resj.message) ? resj.message : 'Request failed';
+                        }
+                      }).catch(err => {
+                        if (statusEl) statusEl.textContent = 'Network error - try again';
+                      });
+                  });
+                  return;
+                }
+                // Invalid token or missing token
+                if (json.message === 'Invalid token' || json.message === 'Missing token') {
+                  root.innerHTML = `<div style="color:#9ca3af;">You must be signed in to view this receipt. <a href="index.html?openAuth=signin&next=${encodeURIComponent(window.location.pathname + window.location.search)}">Sign in</a></div>`;
+                  return;
+                }
+              }
+              // fallback to localStorage lookup
+              const localOrder = findOrder(orderId);
+              if (!localOrder) {
+                root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong></div>`;
+                return;
+              }
+              renderOrder(localOrder);
+              return;
+            }
+            renderOrder(json.receipt);
+          }).catch(err => {
+            console.error('Error fetching receipt from server', err);
+            // fallback to local storage
+            const localOrder = findOrder(orderId);
+            if (!localOrder) {
+              root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong></div>`;
+              return;
+            }
+            renderOrder(localOrder);
+          });
+        return;
+      }
+
+      // No token; fallback to local storage
       const order = findOrder(orderId);
       if (!order) {
         root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong></div>`;
         return;
       }
+      renderOrder(order);
 
-      // Build HTML
-      let html = '';
-      html += `<h1>Receipt — ${order.orderId}</h1>`;
-      html += `<div class="meta">${order.payment_method || (order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery')}</div>`;
-      html += `<div><strong>Customer:</strong> ${order.name || ''}</div>`;
-      if (order.phone) html += `<div><strong>Phone:</strong> ${order.phone}</div>`;
-      if (order.email) html += `<div><strong>Email:</strong> ${order.email}</div>`;
-      if (order.address) html += `<div><strong>Address:</strong> ${order.address}</div>`;
+      function renderOrder(order) {
+        // Build HTML
+        let html = '';
+        html += `<h1>Receipt — ${order.orderId}</h1>`;
+        html += `<div class="meta">${order.payment_method || (order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery')}</div>`;
+        html += `<div><strong>Customer:</strong> ${order.name || ''}</div>`;
+        if (order.phone) html += `<div><strong>Phone:</strong> ${order.phone}</div>`;
+        if (order.email) html += `<div><strong>Email:</strong> ${order.email}</div>`;
+        if (order.address) html += `<div><strong>Address:</strong> ${order.address}</div>`;
 
-      html += `<div style="margin-top:12px;"><strong>Items</strong></div>`;
-      html += '<table><thead><tr><th style="text-align:left">Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Line Total</th></tr></thead><tbody>';
+        html += `<div style="margin-top:12px;"><strong>Items</strong></div>`;
+        html += '<table><thead><tr><th style="text-align:left">Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Line Total</th></tr></thead><tbody>';
 
-      if (Array.isArray(order.cart) && order.cart.length) {
-        order.cart.forEach(it => {
-          const qty = it.quantity || 1;
-          const line = it.item_total || it.unit_price || '';
-          html += `<tr><td>${it.name}</td><td style="text-align:right">${qty}</td><td style="text-align:right">${line}</td></tr>`;
+        if (Array.isArray(order.cart) && order.cart.length) {
+          order.cart.forEach(it => {
+            const qty = it.quantity || 1;
+            const line = it.item_total || it.unit_price || '';
+            html += `<tr><td>${it.name}</td><td style="text-align:right">${qty}</td><td style="text-align:right">${line}</td></tr>`;
+          });
+        } else {
+          html += '<tr><td colspan="3">No items recorded.</td></tr>';
+        }
+        html += '</tbody></table>';
+
+        html += `<div class="total">Total: ${order.total || ''}</div>`;
+        html += `<div style="color:#6b7280; margin-top:6px;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`;
+
+        html += '<div class="actions">';
+        html += '<button class="btn primary" id="printBtn">Print / Save as PDF</button>';
+        html += '<button class="btn ghost" id="closeBtn">Close</button>';
+        html += '</div>';
+
+        root.innerHTML = html;
+
+        // Hook buttons
+        document.getElementById('printBtn').addEventListener('click', () => {
+          window.print();
         });
-      } else {
-        html += '<tr><td colspan="3">No items recorded.</td></tr>';
+        document.getElementById('closeBtn').addEventListener('click', () => {
+          window.close();
+        });
       }
-      html += '</tbody></table>';
-
-      html += `<div class="total">Total: ${order.total || ''}</div>`;
-      html += `<div style="color:#6b7280; margin-top:6px;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`;
-
-      html += '<div class="actions">';
-      html += '<button class="btn primary" id="printBtn">Print / Save as PDF</button>';
-      html += '<button class="btn ghost" id="closeBtn">Close</button>';
-      html += '</div>';
-
-      root.innerHTML = html;
-
-      // Hook buttons
-      document.getElementById('printBtn').addEventListener('click', () => {
-        window.print();
-      });
-      document.getElementById('closeBtn').addEventListener('click', () => {
-        window.close();
-      });
     })();
   </script>
 </body>

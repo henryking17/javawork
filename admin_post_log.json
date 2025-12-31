@@ -1,0 +1,23 @@
+[
+  {
+    "timestamp": "2025-12-31T01:50:40.718Z",
+    "results": [
+      {
+        "file": "tmp_notif1.json",
+        "error": "TypeError: fetch failed"
+      },
+      {
+        "file": "tmp_notif2.json",
+        "error": "TypeError: fetch failed"
+      },
+      {
+        "file": "tmp_notif3.json",
+        "error": "TypeError: fetch failed"
+      },
+      {
+        "file": "tmp_notif4.json",
+        "error": "TypeError: fetch failed"
+      }
+    ]
+  }
+]

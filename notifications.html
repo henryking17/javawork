@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Notifications</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px;background:#f7fafc;color:#111827}
+    .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 6px 18px rgba(16,24,40,0.06);max-width:1000px;margin:0 auto}
+    .notif{border-bottom:1px solid #eef2f7;padding:12px 0;display:flex;gap:12px;align-items:flex-start}
+    .meta{color:#6b7280;font-size:13px}
+    .actions{display:flex;gap:8px;margin-top:8px}
+    .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+    .btn.primary{background:#dc143c;color:#fff}
+    .btn.ghost{background:transparent;border:1px solid #e5e7eb}
+    .controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Notifications</h1>
+    <div class="controls">
+      <input id="q" placeholder="Search notifications" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:6px" />
+      <button id="searchBtn" class="btn ghost">Search</button>
+      <select id="limit" style="padding:8px;border:1px solid #e5e7eb;border-radius:6px"><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option></select>
+      <select id="status" style="padding:8px;border:1px solid #e5e7eb;border-radius:6px"><option value="all">All</option><option value="unread">Unread</option><option value="read">Read</option></select>
+      <button id="markReadBtn" class="btn">Mark selected read</button>
+      <button id="markAllBtn" class="btn">Mark all read</button>
+    </div>
+    <div id="list">Loading…</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;" id="pager"></div>
+  </div>
+
+<script>
+const API = 'http://localhost:5000/api';
+function getToken(){ return localStorage.getItem('authToken'); }
+function qsParam(name){ return new URLSearchParams(window.location.search).get(name); }
+let offset = parseInt(qsParam('offset') || '0', 10) || 0;
+let limit = parseInt(qsParam('limit') || '20', 10) || 20;
+let q = (qsParam('q') || '');
+
+async function ensureSignedIn() {
+  const token = getToken();
+  if (!token) { window.location = 'index.html?openAuth=signin&next=' + encodeURIComponent(window.location.pathname + window.location.search); return false; }
+  return true;
+}
+
+async function fetchPage() {
+  if (!await ensureSignedIn()) return;
+  limit = Number(document.getElementById('limit').value) || limit;
+  q = document.getElementById('q').value || q;
+  const status = (document.getElementById('status') && document.getElementById('status').value) ? document.getElementById('status').value : 'all';
+  const token = getToken();
+  const url = API + '/notifications?limit=' + limit + '&offset=' + offset + (q ? '&q=' + encodeURIComponent(q) : '') + (status && status !== 'all' ? '&status=' + encodeURIComponent(status) : '');
+  try {
+    const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) {
+      document.getElementById('list').innerHTML = '<div style="color:#6b7280">Failed to load: ' + res.status + ' ' + res.statusText + '</div>';
+      return;
+    }
+    const j = await res.json();
+    if (!j || !j.success) { document.getElementById('list').innerHTML = '<div style="color:#6b7280">Failed to load: ' + (j && j.message ? j.message : 'Unknown') + '</div>'; return; }
+    renderList(j.notifications || [], j.total || 0);
+  } catch (err) {
+    document.getElementById('list').innerHTML = '<div style="color:#6b7280">Network error: ' + err.message + '</div>';
+    return;
+  }
+}
+
+async function markAllRead() {
+  if (!await ensureSignedIn()) return;
+  if (!confirm('Mark all your notifications as read?')) return;
+  const token = getToken();
+  try {
+    const res = await fetch(API + '/notifications/mark-all-read', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await res.json();
+    if (!j || !j.success) return alert('Failed to mark all read');
+    fetchPage();
+  } catch (err) { alert('Network error: ' + err.message); }
+}
+
+function renderList(items, total) {
+  const listEl = document.getElementById('list'); listEl.innerHTML = '';
+  if (!items.length) { listEl.innerHTML = '<div style="color:#6b7280">No notifications</div>'; renderPager(total); return; }
+  const container = document.createElement('div');
+  items.forEach(n => {
+    const el = document.createElement('div'); el.className='notif';
+    // checkboxes are unchecked by default so users explicitly select which notifications to mark read
+    el.innerHTML = `<div style="width:36px"><input type="checkbox" data-id="${n.id}" /></div>`;
+    const body = document.createElement('div');
+    body.innerHTML = `<div style="font-weight:600">${n.title} ${n.read?'<span style="color:#6b7280;font-weight:400;margin-left:8px">(read)</span>':''}</div><div class="meta">${n.timestamp ? new Date(n.timestamp).toLocaleString() : ''}</div><div style="margin-top:6px">${(n.body||'').replace(/\n/g,'<br>')}</div>`;
+    if (n.link) {
+      const a = document.createElement('a'); a.href=n.link; a.target='_blank'; a.style.color='#dc143c'; a.textContent='Open'; a.style.display='inline-block'; a.style.marginTop='8px';
+      a.addEventListener('click', (ev)=>{ ev.preventDefault(); markSingleRead(n.id); window.open(n.link,'_blank'); });
+      body.appendChild(a);
+    }
+    el.appendChild(body);
+    container.appendChild(el);
+  });
+  listEl.appendChild(container);
+  renderPager(total);
+}
+
+function renderPager(total) {
+  const pager = document.getElementById('pager'); pager.innerHTML = '';
+  const pageIndex = Math.floor(offset / limit);
+  const totalPages = Math.ceil(total / limit) || 1;
+  const prev = document.createElement('button'); prev.className='btn ghost'; prev.textContent = 'Prev'; prev.disabled = pageIndex <= 0; prev.addEventListener('click', ()=>{ offset = Math.max(0, offset - limit); fetchPage(); });
+  const next = document.createElement('button'); next.className='btn ghost'; next.textContent = 'Next'; next.disabled = pageIndex >= totalPages-1; next.addEventListener('click', ()=>{ offset = Math.min((totalPages-1)*limit, offset + limit); fetchPage(); });
+  pager.appendChild(prev);
+  const info = document.createElement('div'); info.style.padding='8px'; info.style.color='#6b7280'; info.textContent = `Page ${pageIndex+1} of ${totalPages} (${total} total)`;
+  pager.appendChild(info);
+  pager.appendChild(next);
+}
+
+async function markSelectedRead() {
+  const checks = document.querySelectorAll('input[type=checkbox][data-id]');
+  const ids = [];
+  checks.forEach(c => { if (c.checked) ids.push(c.getAttribute('data-id')); });
+  if (!ids.length) return alert('No notifications selected');
+  const token = getToken();
+  try {
+    const res = await fetch(API + '/notifications/mark-read', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ ids }) });
+    const j = await res.json(); if (!j || !j.success) return alert('Failed to mark read');
+    fetchPage();
+  } catch (err) { alert('Network error: ' + err.message); }
+}
+
+async function markSingleRead(id) {
+  const token = getToken();
+  try { await fetch(API + '/notifications/' + encodeURIComponent(id) + '/read', { method:'POST', headers:{ 'Authorization':'Bearer ' + token } }); } catch (e) { /* ignore */ }
+  fetchPage();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('limit').value = limit;
+  document.getElementById('q').value = q;
+  if (document.getElementById('status')) document.getElementById('status').value = 'all';
+  document.getElementById('searchBtn').addEventListener('click', ()=>{ offset = 0; fetchPage(); });
+  document.getElementById('markReadBtn').addEventListener('click', markSelectedRead);
+  const mb = document.getElementById('markAllBtn'); if (mb) mb.addEventListener('click', markAllRead);
+  const statusEl = document.getElementById('status'); if (statusEl) statusEl.addEventListener('change', ()=>{ offset = 0; fetchPage(); });
+  fetchPage();
+});
+</script>
+</body>
+</html>

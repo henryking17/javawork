@@ -61,6 +61,28 @@ function renderReceipts() {
   if (!receiptsListEl) return;
   receiptsListEl.innerHTML = '';
 
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    // fetch receipts from server for current user
+    fetch('http://localhost:5000/api/receipts', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => r.json())
+      .then(json => {
+        let all = [];
+        if (json && json.success && Array.isArray(json.receipts)) {
+          all = json.receipts.map(r => ({ ...r, _type: (r.payment_method && r.payment_method.toLowerCase().includes('cash')) ? 'cod' : 'paid' }));
+        }
+        renderReceiptList(all, receiptsListEl);
+      }).catch(err => {
+        console.error('Error fetching receipts from server', err);
+        // fallback to local storage
+        const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+        const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+        const all = [ ...paid.map(o => ({ ...o, _type: 'paid' })), ...cod.map(o => ({ ...o, _type: 'cod' })) ];
+        renderReceiptList(all, receiptsListEl);
+      });
+    return;
+  }
+
   const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
   const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
 
@@ -149,6 +171,80 @@ function renderReceipts() {
   });
 }
 
+function renderReceiptList(all, receiptsListEl) {
+  if (!receiptsListEl) return;
+  receiptsListEl.innerHTML = '';
+  if (!all || all.length === 0) {
+    receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts found yet. Complete a purchase to see receipts here.</p>';
+    return;
+  }
+
+  // sort by timestamp desc
+  all.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  all.forEach(order => {
+    const card = document.createElement('div');
+    card.className = 'receipt-card';
+    card.style.padding = '12px';
+    card.style.borderBottom = '1px solid #eee';
+
+    const type = order._type === 'paid' ? 'paid' : 'cod';
+    const orderIdEsc = encodeURIComponent(order.orderId || '');
+
+    card.innerHTML = `
+      <div class="receipt-summary" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:700;">${escapeHtml(order.orderId)}</div>
+          <div style="color:#666; font-size:0.95rem;">${escapeHtml(order.name || '')} • ${escapeHtml(order.phone || '')} • ${escapeHtml(order.email || '')}</div>
+          <div style="color:#666; font-size:0.92rem; margin-top:6px;">${type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700; color:#e74c3c;">${escapeHtml(order.total || '')}</div>
+          <div style="margin-top:8px;">
+            <button class="btn toggle-receipt" data-order-id="${escapeHtml(order.orderId)}" aria-expanded="false">Expand</button>
+            <a class="btn" href="receipt.html?orderId=${orderIdEsc}&type=${type}" target="_blank" rel="noopener noreferrer" style="margin-left:8px;">Open</a>
+          </div>
+        </div>
+      </div>
+      <div class="receipt-details" data-order-id="${escapeHtml(order.orderId)}" aria-hidden="true" style="display:none; margin-top:10px;"></div>
+    `;
+
+    receiptsListEl.appendChild(card);
+
+    const toggleBtn = card.querySelector('.toggle-receipt');
+    const detailsEl = card.querySelector('.receipt-details');
+
+    toggleBtn.addEventListener('click', () => {
+      const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+      if (!expanded) {
+        detailsEl.innerHTML = renderReceiptHtml(order);
+        detailsEl.style.display = 'block';
+        detailsEl.setAttribute('aria-hidden', 'false');
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        toggleBtn.textContent = 'Collapse';
+
+        const printBtn = detailsEl.querySelector('.inline-print');
+        if (printBtn) {
+          printBtn.addEventListener('click', () => {
+            const printable = detailsEl.innerHTML;
+            const w = window.open('', '_blank', 'width=800,height=600');
+            if (!w) { alert('Please allow popups to print receipt.'); return; }
+            w.document.write(`<html><head><title>Receipt ${escapeHtml(order.orderId)}</title><style>body{font-family:Arial,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border-bottom:1px solid #eee;}</style></head><body>${printable}<div style="text-align:center;margin-top:12px;"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`);
+            w.document.close(); w.focus();
+          });
+        }
+
+      } else {
+        detailsEl.style.display = 'none';
+        detailsEl.setAttribute('aria-hidden', 'true');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.textContent = 'Expand';
+        detailsEl.innerHTML = '';
+      }
+    });
+  });
+}
+
 /**
  * Optional fallback modal-based view kept for compatibility.
  * (Kept minimal - still available but not used for inline expansion)
@@ -212,9 +308,28 @@ function escapeHtml(str) {
 // Helpers to persist receipts locally
 function savePaidOrder(order) {
   try {
-    const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
-    paidOrders.push(order);
-    localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+    // Try to send to server if user is signed in
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      fetch('http://localhost:5000/api/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(order) })
+        .then(r => r.json()).then(json => {
+          if (!json || !json.success) console.warn('Server did not accept receipt, falling back to local save');
+        }).catch(err => {
+          console.error('Error sending paid order to server, saving locally', err);
+          const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+          paidOrders.push(order);
+          localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+        });
+      // still save locally as a fallback copy
+      const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+      paidOrders.push(order);
+      localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+      return;
+    } else {
+      const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+      paidOrders.push(order);
+      localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+    }
   } catch (e) {
     console.error('Error saving paid order locally', e);
   }
@@ -222,9 +337,26 @@ function savePaidOrder(order) {
 
 function saveCODOrder(order) {
   try {
-    const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
-    codOrders.push(order);
-    localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      fetch('http://localhost:5000/api/receipts', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(order) })
+        .then(r => r.json()).then(json => {
+          if (!json || !json.success) console.warn('Server did not accept receipt, falling back to local save');
+        }).catch(err => {
+          console.error('Error sending COD order to server, saving locally', err);
+          const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+          codOrders.push(order);
+          localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+        });
+      const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+      codOrders.push(order);
+      localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+      return;
+    } else {
+      const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+      codOrders.push(order);
+      localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+    }
   } catch (e) {
     console.error('Error saving COD order locally', e);
   }
@@ -1660,3 +1792,254 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // -------------------- End of script ---------------->
+
+// -------------------- Server-backed Auth: Sign up / Sign in --------------------
+(function () {
+  const API_BASE = 'http://localhost:5000/api';
+
+  function maskIdentifier(user) {
+    if (!user) return '';
+    if (user.name) return user.name;
+    if (user.email) return user.email.replace(/(.{2})(.*)(@.*)/, function(m,a,b,c){ return a + (b ? '...' : '') + c; });
+    if (user.phone) return user.phone.replace(/(.{3})(.*)(.{3})/, function(m,a,b,c){ return a + (b ? '...' : '') + c; });
+    return user.id || '';
+  }
+
+  function setCurrentUser(user) {
+    if (user) localStorage.setItem('currentUser', JSON.stringify(user));
+    else localStorage.removeItem('currentUser');
+    updateAuthUI();
+  }
+  function getCurrentUser() {
+    return JSON.parse(localStorage.getItem('currentUser') || 'null');
+  }
+  function setAuthToken(t) { if (t) localStorage.setItem('authToken', t); else localStorage.removeItem('authToken'); }
+  function getAuthToken() { return localStorage.getItem('authToken') || null; }
+
+  function showAuthModal(mode) {
+    const m = document.getElementById('auth-modal'); if (!m) return;
+    const signin = document.getElementById('signin-form');
+    const signup = document.getElementById('signup-form');
+    if (mode === 'signup') { signin.style.display = 'none'; signup.style.display = 'block'; }
+    else { signin.style.display = 'block'; signup.style.display = 'none'; }
+    m.style.display = 'block'; m.setAttribute('aria-hidden', 'false');
+  }
+  function hideAuthModal() { const m = document.getElementById('auth-modal'); if (!m) return; m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); }
+
+  function updateAuthUI() {
+    const current = getCurrentUser();
+    const authControls = document.getElementById('auth-controls');
+    const authButtons = document.getElementById('auth-buttons');
+    const userDisplay = document.getElementById('user-display');
+    const userNameEl = document.getElementById('user-name');
+    if (!authControls) return;
+    if (current) {
+      if (authButtons) authButtons.style.display = 'none';
+      if (userDisplay) userDisplay.style.display = 'flex';
+      if (userNameEl) userNameEl.textContent = maskIdentifier(current);
+    } else {
+      if (authButtons) authButtons.style.display = '';
+      if (userDisplay) userDisplay.style.display = 'none';
+      if (userNameEl) userNameEl.textContent = '';
+    }
+  }
+
+  // Sign up -> POST /api/signup
+  async function handleSignup(e) {
+    e.preventDefault();
+    const name = (document.getElementById('signup-name') || {}).value || '';
+    const email = (document.getElementById('signup-email') || {}).value || '';
+    const phone = (document.getElementById('signup-phone') || {}).value || '';
+    const password = (document.getElementById('signup-password') || {}).value || '';
+    const msg = document.getElementById('signup-msg'); if (msg) msg.textContent = '';
+    if (!email && !phone) { if (msg) msg.textContent = 'Please provide either an email or mobile number.'; return; }
+    if (!password || password.length < 6) { if (msg) msg.textContent = 'Password must be at least 6 characters.'; return; }
+    if (email && !isValidEmail(email)) { if (msg) msg.textContent = 'Please enter a valid email address.'; return; }
+    if (phone && !isValidPhone(phone)) { if (msg) msg.textContent = 'Please enter a valid phone number.'; return; }
+
+    try {
+      const res = await fetch(API_BASE + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, phone, password }) });
+      const json = await res.json();
+      if (!json || !json.success) {
+        if (msg) msg.textContent = (json && json.message) ? json.message : 'Sign up failed';
+        return;
+      }
+      setAuthToken(json.token || null);
+      setCurrentUser(json.user);
+      notifySuccess('Account created. You are signed in.');
+      hideAuthModal();
+      try { const next = localStorage.getItem('authNext'); if (next) { localStorage.removeItem('authNext'); window.location = next; } } catch(e) { /* ignore */ }
+    } catch (err) { console.error('signup error', err); if (msg) msg.textContent = 'Sign up failed (network)'; }
+  }
+
+  // Sign in -> POST /api/signin
+  async function handleSignin(e) {
+    e.preventDefault();
+    const identifier = (document.getElementById('signin-identifier') || {}).value || '';
+    const password = (document.getElementById('signin-password') || {}).value || '';
+    const msg = document.getElementById('signin-msg'); if (msg) msg.textContent = '';
+    if (!identifier || !password) { if (msg) msg.textContent = 'Please enter both identifier and password.'; return; }
+    try {
+      const res = await fetch(API_BASE + '/signin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, password }) });
+      const json = await res.json();
+      if (!json || !json.success) { if (msg) msg.textContent = (json && json.message) ? json.message : 'Sign in failed'; return; }
+      setAuthToken(json.token || null);
+      setCurrentUser(json.user);
+      notifySuccess('Signed in successfully.');
+      hideAuthModal();
+      try { const next = localStorage.getItem('authNext'); if (next) { localStorage.removeItem('authNext'); window.location = next; } } catch(e) { /* ignore */ }
+      // fetch notifications after sign in
+      fetchNotifications();
+    } catch (err) { console.error('signin error', err); if (msg) msg.textContent = 'Sign in failed (network)'; }
+  }
+
+  async function handleSignout() {
+    const token = getAuthToken();
+    try {
+      if (token) {
+        await fetch(API_BASE + '/signout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      }
+    } catch (e) { console.error('signout request failed', e); }
+    setAuthToken(null);
+    setCurrentUser(null);
+    notifySuccess('Signed out.');
+  }
+
+  async function fetchProfileAndUpdate() {
+    const token = getAuthToken();
+    if (!token) return null;
+    try {
+      const res = await fetch(API_BASE + '/profile', { headers: { 'Authorization': 'Bearer ' + token } });
+      const json = await res.json();
+      if (json && json.success && json.user) {
+        setCurrentUser(json.user);
+        // fetch notifications after profile is loaded
+        fetchNotifications();
+        return json.user;
+      }
+    } catch (e) { console.error('profile fetch error', e); }
+    return null;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateAuthUI();
+    const authToggle = document.getElementById('auth-toggle');
+    const authControls = document.getElementById('auth-controls');
+    if (authToggle && authControls) authToggle.addEventListener('click', () => { const isShown = authControls.style.display === '' || authControls.style.display === 'flex'; authControls.style.display = isShown ? 'none' : 'flex'; authToggle.setAttribute('aria-expanded', String(!isShown)); });
+    const signinBtn = document.getElementById('signin-btn'); const signupBtn = document.getElementById('signup-btn'); if (signinBtn) signinBtn.addEventListener('click', () => showAuthModal('signin')); if (signupBtn) signupBtn.addEventListener('click', () => showAuthModal('signup'));
+    const authModal = document.getElementById('auth-modal'); const authClose = document.getElementById('auth-modal-close'); if (authClose) authClose.addEventListener('click', hideAuthModal); if (authModal) authModal.addEventListener('click', (ev) => { if (ev.target === authModal) hideAuthModal(); });
+    const tabSignIn = document.getElementById('tab-signin'); const tabSignUp = document.getElementById('tab-signup'); if (tabSignIn) tabSignIn.addEventListener('click', () => showAuthModal('signin')); if (tabSignUp) tabSignUp.addEventListener('click', () => showAuthModal('signup'));
+    const signinForm = document.getElementById('signin-form'); const signupForm = document.getElementById('signup-form'); if (signinForm) signinForm.addEventListener('submit', handleSignin); if (signupForm) signupForm.addEventListener('submit', handleSignup);
+    const signoutBtn = document.getElementById('signout-btn'); if (signoutBtn) signoutBtn.addEventListener('click', handleSignout);
+    const current = getCurrentUser(); if (current && authControls) authControls.style.display = 'flex';
+
+    // If URL requested opening auth modal (e.g., receipt redirect): store 'next' and open modal
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const openAuth = params.get('openAuth');
+      const next = params.get('next');
+      if (openAuth) {
+        if (next) localStorage.setItem('authNext', next);
+        showAuthModal(openAuth);
+        // remove query params from URL
+        const u = new URL(window.location.href);
+        u.searchParams.delete('openAuth');
+        u.searchParams.delete('next');
+        history.replaceState(null, '', u.pathname + u.search);
+      }
+    } catch (e) { /* ignore */ }
+
+    const token = getAuthToken(); if (token) { fetchProfileAndUpdate(); fetchNotifications(); setInterval(fetchNotifications, 60000); }
+
+    // notification toggle
+    const notifToggle = document.getElementById('notif-toggle');
+    const notifDropdown = document.getElementById('notif-dropdown');
+    if (notifToggle) notifToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notifDropdown) notifDropdown.style.display = notifDropdown.style.display === 'block' ? 'none' : 'block';
+    });
+    document.addEventListener('click', () => { if (notifDropdown) notifDropdown.style.display = 'none'; });
+
+    // Entrance animation removed per user request — no automatic animation will run
+    const authToggleEl = document.getElementById('auth-toggle');
+    if (authToggleEl) {
+      // Ensure there's no lingering 'enter' class
+      authToggleEl.classList.remove('enter');
+    }
+
+    // notifications helper functions
+    async function fetchNotifications() {
+      const token = getAuthToken();
+      const countEl = document.getElementById('notif-count');
+      const listEl = document.getElementById('notif-list');
+      if (!token || !listEl) return;
+      try {
+        const res = await fetch(API_BASE + '/notifications', { headers: { 'Authorization': 'Bearer ' + token } });
+        const j = await res.json();
+        if (!j || !j.success) { if (listEl) listEl.innerHTML = '<div style="color:#6b7280">Failed to load</div>'; if (countEl) countEl.style.display='none'; return; }
+        renderNotifications(j.notifications || []);
+      } catch (err) { if (listEl) listEl.innerHTML = '<div style="color:#6b7280">Network error</div>'; }
+    }
+
+    function renderNotifications(list) {
+      const countEl = document.getElementById('notif-count');
+      const listEl = document.getElementById('notif-list');
+      const authToggleEl = document.getElementById('auth-toggle');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+      let unread = 0;
+      if (!list.length) { listEl.innerHTML = '<div style="color:#6b7280">No notifications</div>'; if (countEl) countEl.style.display='none'; if (authToggleEl) { authToggleEl.classList.remove('has-unread'); authToggleEl.setAttribute('aria-label','Account'); } return; }
+      list.forEach(n => {
+        if (!n.read) unread++;
+        const el = document.createElement('div'); el.style.padding='8px'; el.style.borderBottom='1px solid #f3f4f6';
+        el.innerHTML = `<div style="font-weight:600">${n.title}</div><div style="color:#6b7280;font-size:13px;margin-top:6px">${(n.body||'').replace(/\n/g,'<br>')}</div>`;
+        if (n.link) {
+          const a = document.createElement('a'); a.href = n.link; a.target = '_blank'; a.style.display='inline-block'; a.style.marginTop='8px'; a.style.color='#dc143c'; a.textContent = 'Open';
+          a.addEventListener('click', (ev)=>{ ev.preventDefault(); markAsRead(n.id); window.open(n.link,'_blank'); });
+          el.appendChild(a);
+        } else {
+          const btn = document.createElement('button'); btn.className='btn ghost'; btn.style.marginTop='8px'; btn.textContent='Mark read'; btn.addEventListener('click', ()=> markAsRead(n.id)); el.appendChild(btn);
+        }
+        listEl.appendChild(el);
+      });
+      if (countEl) { if (unread>0) { countEl.style.display='inline-block'; countEl.textContent = String(unread); } else { countEl.style.display='none'; } }
+      if (authToggleEl) {
+        if (unread > 0) {
+          const display = unread > 99 ? '99+' : String(unread);
+          authToggleEl.classList.add('has-unread');
+          authToggleEl.setAttribute('data-unread', display);
+          authToggleEl.setAttribute('aria-label', `Account, ${unread} unread notifications`);
+          authToggleEl.title = `${unread} unread notification${unread>1? 's':''}`;
+        } else {
+          authToggleEl.classList.remove('has-unread');
+          authToggleEl.removeAttribute('data-unread');
+          authToggleEl.setAttribute('aria-label','Account');
+          authToggleEl.title = 'Account';
+        }
+      }
+    }
+
+    async function markAsRead(id) {
+      const token = getAuthToken(); if (!token) return;
+      try {
+        await fetch(API_BASE + '/notifications/' + encodeURIComponent(id) + '/read', { method:'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      } catch (e) { /* ignore */ }
+      fetchNotifications();
+    }
+
+    async function markAllNotifications() {
+      const token = getAuthToken(); if (!token) return;
+      if (!confirm('Mark all notifications as read?')) return;
+      try {
+        const res = await fetch(API_BASE + '/notifications/mark-all-read', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+        const j = await res.json(); if (!j || !j.success) return alert('Failed to mark all read');
+      } catch (e) { alert('Network error: ' + e.message); }
+      fetchNotifications();
+    }
+
+    // wire up mark all button in dropdown if present
+    const notifMarkAllBtn = document.getElementById('notif-mark-all'); if (notifMarkAllBtn) notifMarkAllBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); markAllNotifications(); });
+
+  });
+
+})();

@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Henry Cyprain",
+    "phone": "+2348054059108",
+    "email": "henrycyprain2@gmail.com",
+    "address": "ff",
+    "city": "gbagada",
+    "notes": "ffff",
+    "cart": [
+      {
+        "name": "Wall Fans",
+        "unit_price": "₦30,000",
+        "quantity": 1,
+        "item_total": "₦30,000"
+      },
+      {
+        "name": "Microphones",
+        "unit_price": "₦45,000",
+        "quantity": 1,
+        "item_total": "₦45,000"
+      },
+      {
+        "name": "Ceiling Fans",
+        "unit_price": "₦35,000",
+        "quantity": 1,
+        "item_total": "₦35,000"
+      }
+    ],
+    "total": "₦110,000",
+    "timestamp": "2025-12-31T00:27:10.015Z",
+    "orderId": "COD_984379",
+    "payment_method": "Cash on Delivery",
+    "userId": "u_1767140780755"
+  }
+]

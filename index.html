@@ -3,6 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>html.no-jump { overflow: hidden !important; }</style>
+    <script>
+      /* Prevent immediate jump-to-anchor when the page is opened with a hash.
+         Runs early in the <head> so the browser won't scroll before scripts execute.
+         Adds a temporary class to <html> that blocks scrolling until DOMContentLoaded. */
+      (function(){
+        try {
+          if (location.hash) {
+            if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+            // Temporarily prevent scrolling to avoid the browser jumping to the anchor
+            document.documentElement.classList.add('no-jump');
+            // Ensure we're at the top to prevent a visible jump
+            window.scrollTo(0, 0);
+            // Remove the hash without creating a history entry
+            history.replaceState(null, '', location.pathname + location.search);
+
+            // Remove the temporary no-jump class once content is ready
+            var removeNoJump = function() {
+              setTimeout(function(){ document.documentElement.classList.remove('no-jump'); }, 50);
+            };
+            if (document.readyState === 'complete' || document.readyState === 'interactive') removeNoJump();
+            else window.addEventListener('DOMContentLoaded', removeNoJump);
+            // Safety fallback if DOMContentLoaded doesn't fire quickly
+            setTimeout(function(){ document.documentElement.classList.remove('no-jump'); }, 500);
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
     <title>Cympet and Co. Enterprises - Electronics Shop</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://js.paystack.co/v1/inline.js"></script>
@@ -296,10 +326,96 @@
         </div>
     </section>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Cympet and Co. Enterprises. All rights reserved.</p>
+    <footer class="site-footer">
+      <div class="footer-top">
+        <div class="container footer-top-inner">
+          <div class="newsletter">
+            <h4>Get the best deals & new arrivals</h4>
+            <form id="newsletter-form" class="newsletter-form" onsubmit="event.preventDefault(); subscribeNewsletter();">
+              <!-- Optional: set your Web3Forms access key here or via window.NEWSLETTER_ACCESS_KEY -->
+              <input type="hidden" id="newsletter-access-key" value="">
+              <input type="email" id="newsletter-email" placeholder="Enter your email address" required>
+              <button class="btn primary" type="submit">Subscribe</button>
+            </form>
+            <p class="newsletter-note">Exclusive offers, product launches and more — delivered weekly.</p>
+          </div>
+
+          <div class="apps-social">
+            <div class="apps">
+              <h4>Download our app</h4>
+              <div class="app-links">
+                <a href="#" class="app-link">App Store</a>
+                <a href="#" class="app-link">Google Play</a>
+              </div>
+            </div>
+
+            <div class="social">
+              <h4>Follow us</h4>
+              <div class="social-icons">
+                <a href="#" aria-label="Facebook">📘</a>
+                <a href="#" aria-label="Twitter">🐦</a>
+                <a href="#" aria-label="Instagram">📸</a>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="footer-middle">
+        <div class="container footer-columns">
+          <div class="footer-column">
+            <h5>Shop</h5>
+            <ul>
+              <li><a href="#products">Featured</a></li>
+              <li><a href="#products">Air Conditioners</a></li>
+              <li><a href="#products">Generators</a></li>
+              <li><a href="#products">Refrigerators</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-column">
+            <h5>Customer Care</h5>
+            <ul>
+              <li><a href="#contact">Contact Us</a></li>
+              <li><a href="#payment">Payment Options</a></li>
+              <li><a href="#about">About Us</a></li>
+              <li><a href="#receipts">My Receipts</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-column">
+            <h5>Help</h5>
+            <ul>
+              <li><a href="#contact">FAQ</a></li>
+              <li><a href="#contact">Shipping & Delivery</a></li>
+              <li><a href="#contact">Returns</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-column">
+            <h5>Legal & Info</h5>
+            <ul>
+              <li><a href="#">Privacy Policy</a></li>
+              <li><a href="#">Terms of Use</a></li>
+              <li><a href="#">Security</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-column contact-col">
+            <h5>Contact</h5>
+            <p>📍 No 41, Shogbamu Street, Lagos State</p>
+            <p>📞 +234 803 309 0515 • +234 912 513 6183</p>
+            <p>📧 cympet2017@gmail.com</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div class="container footer-bottom-inner">
+          <div class="payments">Accepted payments: <span class="payment-icons">Visa • Mastercard • Paystack</span></div>
+          <div class="copyright">&copy; 2025 Cympet and Co. Enterprises. All rights reserved.</div>
+        </div>
+      </div>
     </footer>
 
     <!-- Product modal (show details and specifications only) -->
@@ -446,6 +562,12 @@
             <img id="lightbox-image" src="" alt="Enlarged product image" style="max-width:100%; max-height:80vh; display:block; margin:0 auto;">
         </div>
     </div>
+
+    <script>
+      // To enable real newsletter signups via Web3Forms, set your access key here or in a separate script.
+      // Example: window.NEWSLETTER_ACCESS_KEY = 'your-web3forms-access-key';
+      // You can get an access key from https://web3forms.com/ (or leave blank to use localStorage fallback).
+    </script>
 
     <script src="script.js"></script>
     

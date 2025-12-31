@@ -230,8 +230,19 @@ function saveCODOrder(order) {
   }
 }
 
-// Ensure receipts render on load
+// Prevent initial auto-scroll to anchors on page load and ensure receipts render
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 document.addEventListener('DOMContentLoaded', () => {
+  // If the page was opened with a hash (e.g., /index.html#products), browsers typically jump to it.
+  // Reset scroll to top immediately and remove the hash so the page doesn't auto-scroll.
+  if (location.hash) {
+    // Jump to the top immediately (no animation) to avoid visible jump
+    window.scrollTo(0, 0);
+    // Remove the hash from the URL without creating a history entry
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
   renderReceipts();
 });
 
@@ -274,6 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // show all
       cards.forEach(c => c.style.display = '');
       hideNoResults();
+      // Clear any search-related hash so stale links aren't left behind
+      try { if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
       return;
     }
 
@@ -291,8 +304,32 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    if (!foundAny) showNoResults();
-    else hideNoResults();
+    if (!foundAny) {
+      showNoResults();
+      // Remove search-related hash since there are no matches
+      try { if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    } else {
+      hideNoResults();
+
+      // Scroll the products section into view when there are matching results
+      const productsRoot = document.getElementById('products');
+      if (productsRoot) {
+        try {
+          productsRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+          // fallback for older browsers
+          window.scrollTo(0, productsRoot.getBoundingClientRect().top + window.pageYOffset - 20);
+        }
+      }
+
+      // Store a shareable hash with the search query (replaceState doesn't trigger navigation)
+      try {
+        const qRaw = searchInput.value.trim();
+        const encoded = encodeURIComponent(qRaw);
+        const newHash = '#products?search=' + encoded;
+        if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search + newHash);
+      } catch (e) {}
+    }
   }
 
   // live search while typing (optional): uncomment the listener below if you want instant filtering
@@ -1608,15 +1645,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Auto-show if receipts exist
+    // Indicate if receipts exist (but do NOT auto-open to avoid scrolling on load)
     try {
       const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
       const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
-      if ((paid && paid.length) || (cod && cod.length)) {
-        btn.click();
+      const total = (paid ? paid.length : 0) + (cod ? cod.length : 0);
+      if (total > 0) {
+        // Show a badge in the button text to avoid auto-opening the section (which would scroll)
+        btn.textContent = `Show Receipts (${total})`;
+        btn.setAttribute('aria-label', `Show ${total} receipts`);
       }
     } catch (err) {
-      console.error('Error checking stored receipts for auto-show:', err);
+      console.error('Error checking stored receipts for indicator:', err);
     }
 
   } catch (e) {
@@ -1646,6 +1686,71 @@ function printReceipt() {
 }
 
 
+
+// Small notification helper for errors
+function notifyError(msg) {
+  if (typeof window.showErrorToast === 'function') {
+    window.showErrorToast(msg);
+  } else if (typeof window.showToast === 'function') {
+    window.showToast(msg, 'error');
+  } else {
+    window.alert(msg);
+  }
+}
+
+// Newsletter subscription handler (supports Web3Forms or localStorage fallback)
+function subscribeNewsletter() {
+  const emailEl = document.getElementById('newsletter-email');
+  if (!emailEl) return;
+  const email = (emailEl.value || '').trim();
+  if (!email) { notifyError('Please enter a valid email address.'); return; }
+
+  // Determine access key (first check global, then hidden input)
+  const accessKey = (window.NEWSLETTER_ACCESS_KEY && String(window.NEWSLETTER_ACCESS_KEY).trim()) ||
+                    (document.getElementById('newsletter-access-key') && document.getElementById('newsletter-access-key').value.trim()) || '';
+
+  if (accessKey) {
+    // Send to Web3Forms
+    const payload = {
+      access_key: accessKey,
+      subject: 'Newsletter Signup',
+      email: email,
+      data: { email }
+    };
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(json => {
+      if (json && json.success) {
+        notifySuccess("Thanks — you're subscribed!");
+        emailEl.value = '';
+      } else {
+        console.error('Web3Forms error:', json);
+        notifyError(json && json.message ? json.message : 'Subscription failed — please try again later.');
+      }
+    })
+    .catch(err => {
+      console.error('Subscription error:', err);
+      notifyError('Subscription failed — please try again later.');
+    });
+
+  } else {
+    // Fallback: store locally so you can export or review later
+    try {
+      const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]');
+      list.push({ email: email, created: new Date().toISOString() });
+      localStorage.setItem('newsletter_subscribers', JSON.stringify(list));
+      notifySuccess("Thanks — you're subscribed! (saved locally)");
+      emailEl.value = '';
+    } catch (e) {
+      console.error('Local subscription error:', e);
+      notifyError('Subscription failed — please try again.');
+    }
+  }
+}
 
 // Initialize receipts UI on load
 document.addEventListener('DOMContentLoaded', () => {

@@ -5,8 +5,15 @@ require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+const path = require('path');
+// Serve static frontend files
+app.use(express.static(path.join(__dirname)));
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const JWT_SECRET = process.env.SESSION_SECRET || 'session_secret_dev';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '197636188354-2nrc48grt63t2dpj4jcs332oonrt3sor.apps.googleusercontent.com';
 
 // Initialize payment
 app.post("/initialize-payment", async (req, res) => {
@@ -41,14 +48,59 @@ app.get("/verify-payment/:reference", async (req, res) => {
   }
 });
 
+// Verify Google ID token and create session cookie
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { id_token } = req.body || {};
+    if (!id_token) return res.status(400).json({ error: 'id_token required' });
+
+    const infoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(id_token)}`);
+    const info = infoRes.data;
+
+    // validate audience
+    if (info.aud !== GOOGLE_CLIENT_ID) return res.status(401).json({ error: 'Token client_id not recognized' });
+
+    // create a small session JWT
+    const jwt = require('jsonwebtoken');
+    const payload = { sub: info.sub, email: info.email, name: info.name, picture: info.picture };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+    // set cookie (httpOnly)
+    res.cookie('session', token, { httpOnly: true, sameSite: 'lax' });
+    res.json({ ok: true, user: payload });
+  } catch (err) {
+    console.error('Google auth error', err?.response?.data || err.message || err);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// Get current session user
+app.get('/api/me', (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const token = req.cookies && req.cookies.session;
+    if (!token) return res.status(401).json({ error: 'No session' });
+    const payload = jwt.verify(token, JWT_SECRET);
+    res.json({ user: payload });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid session' });
+  }
+});
+
+// Logout
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('session');
+  res.json({ ok: true });
+});
+
+
 
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
-const axios = require("axios");
-
+// helper for creating transfer recipients (used manually)
 async function createRecipient() {
   const response = await axios.post(
     "https://api.paystack.co/transferrecipient",

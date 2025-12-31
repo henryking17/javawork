@@ -1879,6 +1879,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = (document.getElementById('signin-password') || {}).value || '';
     const msg = document.getElementById('signin-msg'); if (msg) msg.textContent = '';
     if (!identifier || !password) { if (msg) msg.textContent = 'Please enter both identifier and password.'; return; }
+    const submitBtn = document.getElementById('signin-submit');
+    let oldText = null; if (submitBtn) { oldText = submitBtn.textContent; submitBtn.disabled = true; submitBtn.textContent = 'Signing in…'; }
     try {
       const res = await fetch(API_BASE + '/signin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, password }) });
       const json = await res.json();
@@ -1891,6 +1893,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // fetch notifications after sign in
       fetchNotifications();
     } catch (err) { console.error('signin error', err); if (msg) msg.textContent = 'Sign in failed (network)'; }
+    finally { if (submitBtn) { submitBtn.disabled = false; if (oldText !== null) submitBtn.textContent = oldText; } }
   }
 
   async function handleSignout() {

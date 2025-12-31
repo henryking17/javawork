@@ -136,12 +136,22 @@ app.post('/api/signin', async (req, res) => {
     const user = users.find(u => {
       // email match (case-insensitive)
       if (u.email && u.email.toLowerCase() === idLower) return true;
-      // phone match (normalized digits), allow suffix match to tolerate country code or leading 0
+      // phone match (normalized digits), allow flexible matching:
+      // - exact match
+      // - suffix match (country code vs local)
+      // - trim leading zeros from input
+      // - match last 10 digits (common local number length)
       if (u.phone && idDigits) {
         const up = normalizePhone(u.phone) || '';
         if (!up) return false;
         if (up === idDigits) return true;
         if (up.endsWith(idDigits) || idDigits.endsWith(up)) return true;
+        const trimmedInput = idDigits.replace(/^0+/, '');
+        if (up.endsWith(trimmedInput) || trimmedInput.endsWith(up)) return true;
+        // compare last 10 digits (covers local 0-prefixed or country prefixed variants)
+        const upLast10 = up.slice(-10);
+        const idLast10 = idDigits.slice(-10);
+        if (upLast10 && idLast10 && upLast10 === idLast10) return true;
       }
       return false;
     });

@@ -7,5 +7,13 @@
     "pwd": "$2a$10$Yx1O1OR1QNS0FmIjDy1a3OmJ5NcgNrLOc2AsuXOrnSZJToMqVdrK.",
     "created": "2025-12-31T00:26:20.757Z",
     "isAdmin": true
+  },
+  {
+    "id": "u_1767147767666",
+    "name": "CYMPET ELECTRONICS",
+    "email": "cympet2017@gmail.com",
+    "phone": "+234855555555",
+    "pwd": "$2a$10$QouAGFDug5EFl.o0efRJveURMuT4K0m9yYblrfPNXZGF9Kqy6odLC",
+    "created": "2025-12-31T02:22:47.667Z"
   }
 ]

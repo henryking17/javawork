@@ -257,6 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('search-btn');
   const productCards = () => Array.from(document.querySelectorAll('.product-card'));
   const productsSection = document.querySelector('#products .product-grid');
+  // Track whether user has an active search so we can restore scroll when cleared
+  let isSearching = false;
+  let searchPriorScroll = null;
+  let lastSearchQuery = '';
 
   // small "no results" placeholder
   let noResultsEl = null;
@@ -279,15 +283,42 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function performSearch() {
-    const q = (searchInput.value || '').trim().toLowerCase();
+    const qRaw = (searchInput.value || '').trim();
+    const q = qRaw.toLowerCase();
     const cards = productCards();
+
+    // If clearing the search, restore UI and previous scroll position
     if (!q) {
-      // show all
       cards.forEach(c => c.style.display = '');
       hideNoResults();
       // Clear any search-related hash so stale links aren't left behind
       try { if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+
+      // If we previously saved a scroll position before searching, restore it
+      if (isSearching) {
+        if (typeof searchPriorScroll === 'number') {
+          try { window.scrollTo({ top: searchPriorScroll, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, searchPriorScroll); }
+        } else {
+          // fallback: scroll to products top
+          const productsRoot = document.getElementById('products');
+          if (productsRoot) {
+            try { productsRoot.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { window.scrollTo(0, productsRoot.getBoundingClientRect().top + window.pageYOffset - 20); }
+          }
+        }
+      }
+
+      // reset search tracking
+      isSearching = false;
+      searchPriorScroll = null;
+      lastSearchQuery = '';
       return;
+    }
+
+    // Save the user's position the first time they run a search so we can return them
+    if (!isSearching) {
+      isSearching = true;
+      searchPriorScroll = window.pageYOffset || window.scrollY || 0;
+      lastSearchQuery = qRaw;
     }
 
     let foundAny = false;
@@ -324,7 +355,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Store a shareable hash with the search query (replaceState doesn't trigger navigation)
       try {
-        const qRaw = searchInput.value.trim();
         const encoded = encodeURIComponent(qRaw);
         const newHash = '#products?search=' + encoded;
         if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search + newHash);

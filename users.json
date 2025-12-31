@@ -15,5 +15,31 @@
     "phone": "+234855555555",
     "pwd": "$2a$10$QouAGFDug5EFl.o0efRJveURMuT4K0m9yYblrfPNXZGF9Kqy6odLC",
     "created": "2025-12-31T02:22:47.667Z"
+  },
+  {
+    "id": "u_1767163601539",
+    "name": "Test User",
+    "email": "test+1@example.com",
+    "phone": "08012345678",
+    "pwd": "$2a$10$la2b/H7Zj8VsVmKJx00p3.Vk5SlRPTOiCSwt8MtyrXUc3Jtzqw/Rm",
+    "created": "2025-12-31T06:46:41.541Z"
+  },
+  {
+    "id": "u_1767165652503",
+    "name": "olu",
+    "email": "henrycyprain888882@gmail.com",
+    "phone": "822222222222",
+    "phoneNormalized": "822222222222",
+    "pwd": "$2a$10$W3Y0Nz8sHTRDzAkOl7eR1udGHid7I6WHzk7Nx3VFy2sWc0BGLwO2O",
+    "created": "2025-12-31T07:20:52.505Z"
+  },
+  {
+    "id": "u_1767165758417",
+    "name": "Verify Tester",
+    "email": "verify+1767165757894@example.com",
+    "phone": "08035467340",
+    "phoneNormalized": "08035467340",
+    "pwd": "$2a$10$9zz2Jw15Qbtoei5BZc1NtOsmxPT2CW255h6skQSc/nLwnmg6y.MVS",
+    "created": "2025-12-31T07:22:38.417Z"
   }
 ]

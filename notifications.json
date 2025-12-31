@@ -5,8 +5,9 @@
     "title": "Welcome to Cympet and Co.",
     "body": "Thanks for creating an account! Explore deals and manage your receipts from your Account.",
     "link": "/notifications.html",
-    "read": false,
-    "timestamp": "2025-12-30T08:00:00.000Z"
+    "read": true,
+    "timestamp": "2025-12-30T08:00:00.000Z",
+    "readAt": "2025-12-31T07:16:57.358Z"
   },
   {
     "id": "n_1703983600002",
@@ -14,8 +15,9 @@
     "title": "Receipt shared",
     "body": "An admin has shared a receipt (Order: ORD12345) with you. You can view it from the Receipts page.",
     "link": "/receipts.html",
-    "read": false,
-    "timestamp": "2025-12-30T10:00:00.000Z"
+    "read": true,
+    "timestamp": "2025-12-30T10:00:00.000Z",
+    "readAt": "2025-12-31T07:16:57.358Z"
   },
   {
     "id": "n_1703990000003",
@@ -43,8 +45,9 @@
     "title": "New product: Solar Generator",
     "body": "We just launched a new Solar Generator with free delivery for a limited time. Check it out!",
     "link": "/product.html?id=solar-generator",
-    "read": false,
-    "timestamp": "2025-12-31T02:00:00.000Z"
+    "read": true,
+    "timestamp": "2025-12-31T02:00:00.000Z",
+    "readAt": "2025-12-31T07:16:57.358Z"
   },
   {
     "id": "n_1704000600006",
@@ -52,8 +55,9 @@
     "title": "Price drop: Air Conditioner",
     "body": "Good news — the air conditioner you viewed just dropped in price. Visit the product page to see the new price.",
     "link": "/product.html?id=ac-2500",
-    "read": false,
-    "timestamp": "2025-12-31T02:10:00.000Z"
+    "read": true,
+    "timestamp": "2025-12-31T02:10:00.000Z",
+    "readAt": "2025-12-31T07:16:57.358Z"
   },
   {
     "id": "n_1704001200007",

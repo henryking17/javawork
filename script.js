@@ -48,7 +48,7 @@ function renderReceiptHtml(order) {
         </tbody>
       </table>
       <div style="margin-top:12px; font-weight:700; text-align:right;">Total: ${escapeHtml(order.total || '')}</div>
-      <div style="margin-top:8px; color:#666;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>
+      <div style="margin-top:8px; color:#666;">Order Date: ${formatDateTime12(order.timestamp)}</div>
       <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
         <button class="btn inline-print">Print / Save PDF</button>
         <a class="btn ghost" href="receipt.html?orderId=${encodeURIComponent(order.orderId)}&type=${order._type === 'paid' ? 'paid' : 'cod'}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
@@ -86,9 +86,9 @@ function renderReceipts() {
     card.className = 'receipt-card';
     card.style.padding = '12px';
     card.style.borderBottom = '1px solid #eee';
-
     const type = order._type === 'paid' ? 'paid' : 'cod';
     const orderIdEsc = encodeURIComponent(order.orderId || '');
+    const dateStr = order.timestamp ? formatDateTime12(order.timestamp) : '';
 
     card.innerHTML = `
       <div class="receipt-summary" style="display:flex; justify-content:space-between; align-items:center;">
@@ -96,6 +96,7 @@ function renderReceipts() {
           <div style="font-weight:700;">${escapeHtml(order.orderId)}</div>
           <div style="color:#666; font-size:0.95rem;">${escapeHtml(order.name || '')} • ${escapeHtml(order.phone || '')} • ${escapeHtml(order.email || '')}</div>
           <div style="color:#666; font-size:0.92rem; margin-top:6px;">${type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}${order.delivery_type ? ' • ' + (order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery') : ''}</div>
+          <div style="color:#666; font-size:0.88rem; margin-top:6px;">${escapeHtml(dateStr)}</div>
         </div>
         <div style="text-align:right;">
           <div style="font-weight:700; color:#e74c3c;">${escapeHtml(order.total || '')}</div>
@@ -194,7 +195,7 @@ function viewReceipt(orderId, typeHint) {
   lines.push('</tbody>');
   lines.push('</table>');
   lines.push(`<div style="margin-top:12px; font-weight:700; text-align:right;">Total: ${escapeHtml(order.total || '')}</div>`);
-  lines.push(`<div style="margin-top:8px; color:#666;">Order Date: ${new Date(order.timestamp).toLocaleString()}</div>`);
+  lines.push(`<div style="margin-top:8px; color:#666;">Order Date: ${formatDateTime12(order.timestamp)}</div>`);
 
   if (receiptContent) {
     receiptContent.innerHTML = lines.join('');
@@ -216,6 +217,24 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Centralized date/time formatter that ensures 12-hour clock (e.g., "Dec 31, 2025, 2:05 PM")
+function formatDateTime12(input) {
+  if (!input) return '';
+  const d = (input instanceof Date) ? input : new Date(input);
+  // Use locale-sensitive formatting with explicit 12-hour option
+  const opts = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+  try {
+    return d.toLocaleString(undefined, opts);
+  } catch (e) {
+    // Fallback to a simple formatted string
+    const hh = d.getHours();
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    const hr12 = ((hh + 11) % 12) + 1;
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${hr12}:${mm} ${ampm}`;
+  }
 }
 
 // Helpers to persist receipts locally
@@ -872,9 +891,54 @@ function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
 }
+// Normalize phone numbers to local 0XXXXXXXXXX format when possible
+function normalizePhone(phone) {
+  if (phone === undefined || phone === null) return '';
+  let p = String(phone || '').replace(/[\s\-\(\)]/g, '');
+  if (p.startsWith('+234')) {
+    p = '0' + p.slice(4);
+  } else if (p.startsWith('234')) {
+    p = '0' + p.slice(3);
+  } else if (/^[1-9]\d{9}$/.test(p)) {
+    // 10 digits without leading 0 -> assume local number, add leading 0
+    p = '0' + p;
+  }
+  return p;
+}
+
 function isValidPhone(phone) {
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+  const p = normalizePhone(phone);
+  // Accept exactly 11 digits starting with 0 (Nigerian local format)
+  return /^0\d{10}$/.test(p);
+}
+
+// Migrate stored phone numbers in localStorage to normalized 0XXXXXXXXXX format
+function migrateStoredPhones() {
+  const keys = ['contacts', 'paid_orders', 'cash_orders', 'customerInfo'];
+  keys.forEach(k => {
+    const raw = localStorage.getItem(k);
+    if (!raw) return;
+    try {
+      let data = JSON.parse(raw);
+      let changed = false;
+      if (Array.isArray(data)) {
+        data.forEach(item => {
+          if (item && item.phone && typeof item.phone === 'string') {
+            const norm = normalizePhone(item.phone);
+            if (norm && norm !== item.phone) { item.phone = norm; changed = true; }
+          }
+        });
+      } else if (data && typeof data === 'object') {
+        if (data.phone && typeof data.phone === 'string') {
+          const norm = normalizePhone(data.phone);
+          if (norm && norm !== data.phone) { data.phone = norm; changed = true; }
+        }
+      }
+      if (changed) localStorage.setItem(k, JSON.stringify(data));
+    } catch (e) {
+      // ignore malformed data
+    }
+  });
 }
 function parsePrice(priceStr) {
     if (!priceStr) return 0;
@@ -1544,6 +1608,10 @@ function initiatePickup() {
     showDeliveryModal('pickup');
 }
 
+// Transient delivery payment state. Confirm remains disabled until a successful Paystack payment is recorded.
+let deliveryPaymentConfirmed = false;
+let deliveryPaymentInfo = null;
+
 // showDeliveryModal(mode) -- mode: 'delivery' (default) or 'pickup'
 function showDeliveryModal(mode = 'delivery') {
     const deliveryCartItems = document.getElementById('delivery-cart-items');
@@ -1588,7 +1656,7 @@ function showDeliveryModal(mode = 'delivery') {
       const feeWarning = document.getElementById('delivery-fee-warning');
       if (mode === 'pickup') {
         if (h2) h2.textContent = 'Pickup Details';
-        if (p) p.textContent = 'Please provide your pickup information. Payment will be collected upon pickup.';
+        if (p) p.textContent = 'Please provide your pickup information. An address for the pickup is already in the form, we will be expecting you';
         if (modeInput) modeInput.value = 'pickup';
         // hide editable delivery address and city
         if (deliveryAddrGroup) deliveryAddrGroup.style.display = 'none';
@@ -1603,7 +1671,7 @@ function showDeliveryModal(mode = 'delivery') {
         if (feeWarning) feeWarning.style.display = 'none';
       } else {
         if (h2) h2.textContent = 'Delivery Details';
-        if (p) p.textContent = 'Please provide your delivery information. Payment will be collected upon delivery.';
+        if (p) p.textContent = 'Please provide your delivery information. Receipts will be generated upon successful delivery.';
         if (modeInput) modeInput.value = 'delivery';
         // show editable delivery address and city
         if (deliveryAddrGroup) deliveryAddrGroup.style.display = '';
@@ -1618,6 +1686,13 @@ function showDeliveryModal(mode = 'delivery') {
       }
     }
 
+    // Reset transient payment state and disable Confirm until payment completes
+    deliveryPaymentConfirmed = false;
+    deliveryPaymentInfo = null;
+    if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; }
+    const deliveryPayBtn = document.getElementById('delivery-pay-btn');
+    if (deliveryPayBtn) { deliveryPayBtn.disabled = false; }
+
     // Update the Pay Now button label for this mode
     updateDeliveryPayBtnLabel(mode);
 
@@ -1630,6 +1705,7 @@ function closeDeliveryModal() {
 }
 
 // Cart PAY NOW button wiring
+// When clicked: close the cart, scroll to #payment, highlight it and add an accessible Close button to return to previous scroll position
 document.addEventListener('DOMContentLoaded', () => {
   const cartPayBtn = document.getElementById('cart-pay-btn');
   if (!cartPayBtn) return;
@@ -1638,8 +1714,52 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Your cart is empty! Add items before paying.');
       return;
     }
-    // Open checkout modal so we collect name/phone/email and then call checkout()
-    showCheckoutModal();
+
+    // Close the cart modal
+    closeCart();
+
+    const paymentSection = document.getElementById('payment');
+    if (!paymentSection) {
+      // Fallback: open checkout modal
+      showCheckoutModal();
+      return;
+    }
+
+    // Save current scroll position to return later
+    const prevScroll = window.pageYOffset || window.scrollY || 0;
+
+    // Add highlight class
+    paymentSection.classList.add('payment-active');
+
+    // Create Exit button if not present
+    let exitBtn = paymentSection.querySelector('.payment-exit-btn');
+    if (!exitBtn) {
+      exitBtn = document.createElement('button');
+      exitBtn.type = 'button';
+      exitBtn.className = 'btn ghost payment-exit-btn';
+      exitBtn.textContent = 'Close';
+      exitBtn.setAttribute('aria-label', 'Close payment options and return to previous view');
+
+      exitBtn.addEventListener('click', () => {
+        paymentSection.classList.remove('payment-active');
+        if (exitBtn && exitBtn.parentNode) exitBtn.parentNode.removeChild(exitBtn);
+        try { window.scrollTo({ top: prevScroll, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, prevScroll); }
+      });
+
+      const h2 = paymentSection.querySelector('h2');
+      if (h2) h2.parentNode.insertBefore(exitBtn, h2.nextSibling);
+      else paymentSection.insertBefore(exitBtn, paymentSection.firstChild);
+    }
+
+    // Scroll payment section into view and focus the first method
+    try {
+      paymentSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const firstMethod = paymentSection.querySelector('.payment-method');
+      if (firstMethod) { firstMethod.setAttribute('tabindex', '0'); firstMethod.focus(); }
+    } catch (e) {
+      // fallback to checkout modal
+      showCheckoutModal();
+    }
   });
 });
 // -------------------- Delivery form submission (sends email + stores locally) --------------------
@@ -1684,50 +1804,28 @@ if (deliveryForm) {
         deliverySubmitBtn.textContent = 'Processing Order...';
 
         setTimeout(async () => {
-            // Build order items & total
-            const items = [];
-            let total = 0;
-            for (const productKey in cart) {
-                const details = getProductDetails(productKey);
-                const quantity = cart[productKey];
-                const itemTotal = details.unit_price * quantity;
-                total += itemTotal;
-                items.push({
-                    name: details.name,
-                    unit_price: details.priceStr,
-                    quantity,
-                    item_total: formatPrice(itemTotal)
-                });
+            // Require a successful Paystack payment before finalizing the order from this form.
+            if (!deliveryPaymentConfirmed || !deliveryPaymentInfo) {
+                showDeliveryStatus('Please complete payment using the Pay Now button before confirming your order.', 'error');
+                return;
             }
 
-            const mode = (document.getElementById('delivery-mode') && document.getElementById('delivery-mode').value) ? document.getElementById('delivery-mode').value : 'delivery';
+            // Merge any form updates into the payment snapshot
+            const pd = Object.assign({}, deliveryPaymentInfo);
+            pd.name = name;
+            pd.phone = phone;
+            pd.email = email;
+            pd.address = address;
+            pd.city = city;
+            pd.notes = notes;
+            pd.timestamp = new Date().toISOString();
 
-            const paymentMethod = (mode === 'pickup') ? 'Cash on Pickup' : 'Cash on Delivery';
-
-            const deliveryData = {
-                name,
-                phone,
-                email,
-                address,
-                city,
-                notes,
-                cart: items,
-                total: formatPrice(total),
-                timestamp: new Date().toISOString(),
-                orderId: (mode === 'pickup' ? 'PUP_' : 'COD_') + Math.floor((Math.random() * 1000000) + 1),
-                payment_method: paymentMethod,
-                delivery_type: mode
-            };
-
-            // store order locally for receipts (use same handler so receipts list shows both types)
-            saveCODOrder(deliveryData);
-
-            // send email (pass type for subject/content)
+            // Finalize the paid order: store locally and send email
             try {
-                await sendOrderEmail(deliveryData, mode === 'pickup' ? 'pickup' : 'cod');
-                console.log('Order email sent');
+                savePaidOrder(pd);
+                await sendOrderEmail(pd, 'payment');
             } catch (err) {
-                console.error('Error sending order email:', err);
+                console.error('Error finalizing paid order:', err);
             }
 
             // Clear cart and update UI
@@ -1735,22 +1833,22 @@ if (deliveryForm) {
             localStorage.setItem('cart', JSON.stringify(cart));
             updateCartCount();
 
-            deliveryForm.reset();
-            const arrangementText = (deliveryData.delivery_type === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
-            showDeliveryStatus(`Order placed successfully! Your order ID is ${deliveryData.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
+            if (deliveryForm) deliveryForm.reset();
+            const arrangementText = (pd.delivery_type === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
+            showDeliveryStatus(`Order confirmed! Your order ID is ${pd.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
 
-            deliverySubmitBtn.disabled = false;
-            deliverySubmitBtn.textContent = 'Confirm Order';
+            // Disable Confirm and clear payment snapshot
+            if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; }
+            deliveryPaymentConfirmed = false;
+            deliveryPaymentInfo = null;
 
-            // close after a short delay
-            setTimeout(() => {
-                closeDeliveryModal();
-            }, 3000);
+            // Close modal shortly after
+            setTimeout(() => { closeDeliveryModal(); }, 2000);
 
             // Refresh receipts UI
             renderReceipts();
 
-            console.log('Cash on Delivery order submitted:', deliveryData);
+            console.log('Paid delivery order finalized:', pd);
         }, 1500);
     });
 }
@@ -1866,6 +1964,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]
             },
             callback: function(response) {
+                // Payment accepted by Paystack — record the payment and enable Confirm.
                 alert('Payment successful! Reference: ' + response.reference);
 
                 const paymentOrder = {
@@ -1884,32 +1983,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     notes
                 };
 
-                // Store paid order locally and notify
-                savePaidOrder(paymentOrder);
-                sendOrderEmail(paymentOrder, 'payment').catch(err => console.error('Error sending payment email:', err));
+                // Mark payment confirmed and store the snapshot for finalization on Confirm
+                deliveryPaymentConfirmed = true;
+                deliveryPaymentInfo = paymentOrder;
 
-                // Clear cart and update UI
-                cart = {};
-                localStorage.setItem('cart', JSON.stringify(cart));
-                updateCartCount();
-
-                // Reset form, show status and refresh receipts
-                if (deliveryForm) deliveryForm.reset();
+                // Inform the user and enable Confirm button
                 const arrangementText = (mode === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
-                showDeliveryStatus(`Payment successful! Your order ID is ${paymentOrder.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
+                showDeliveryStatus(`Payment successful (ref ${response.reference}). Click Confirm Order to complete your ${arrangementText}.`, 'success');
+                if (deliverySubmitBtn) { deliverySubmitBtn.disabled = false; deliverySubmitBtn.textContent = 'Confirm Order (Paid)'; }
 
-                // Hide bank instructions and re-enable button
+                // Restore pay button (hide bank instructions and re-enable)
                 hideBankInstructions('delivery');
                 deliveryPayBtn.disabled = false;
                 deliveryPayBtn.textContent = originalText;
 
-                // Close after a short delay
-                setTimeout(() => {
-                    closeDeliveryModal();
-                }, 2000);
-
-                // Refresh receipts UI
-                renderReceipts();
+                // Do NOT close the modal here — require the user to press Confirm to finalize the order.
             },
             onClose: function() {
                 alert('Payment cancelled.');
@@ -2151,7 +2239,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start collapsed
     receiptsList.style.display = 'none';
 
-    // Replace with a fresh clone to avoid duplicate handlers
+  // Handle footer product link clicks (smooth-scroll + highlight) and direct hash navigation
+  function scrollToProductId(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // small delay then adjust for header and add highlight
+      setTimeout(() => {
+        window.scrollBy(0, -120);
+        el.classList.add('highlight');
+        setTimeout(() => el.classList.remove('highlight'), 2400);
+      }, 350);
+    } catch (e) {
+      try { window.scrollTo(0, el.getBoundingClientRect().top + window.pageYOffset - 140); } catch (err) {}
+    }
+  }
+
+  // Intercept clicks on product anchor links to provide smooth behaviour and highlight
+  document.querySelectorAll('a[href^="#product-"]').forEach(a => {
+    a.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const target = a.getAttribute('href').slice(1);
+      if (target) scrollToProductId(target);
+      // update the URL hash without scrolling again
+      try { history.replaceState(null, '', location.pathname + location.search + '#' + target); } catch (e) {}
+    });
+  });
+
+  // If page loaded with a product hash, scroll to it and highlight
+  if (location.hash && location.hash.startsWith('#product-')) {
+    const id = location.hash.slice(1);
+    setTimeout(() => scrollToProductId(id), 260);
+  }
     const freshBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(freshBtn, btn);
     btn = freshBtn;
@@ -2282,6 +2402,7 @@ function subscribeNewsletter() {
 
 // Initialize receipts UI on load
 document.addEventListener('DOMContentLoaded', () => {
+  try { migrateStoredPhones(); } catch(e) { /* ignore */ }
     renderReceipts();
 });
 

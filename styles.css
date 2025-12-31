@@ -530,6 +530,12 @@ nav ul.show {
     overflow: hidden;
     transition: all 0.3s ease;
     cursor: pointer;
+    scroll-margin-top: 160px; /* account for fixed header when jumping to anchors */
+}
+
+.product-card.highlight {
+    box-shadow: 0 12px 32px rgba(220, 20, 60, 0.18), 0 0 0 4px rgba(220,20,60,0.06);
+    transform: translateY(-6px);
 }
 
 .product-card:hover {
@@ -538,13 +544,34 @@ nav ul.show {
 }
 
 .product-image {
-    height: 200px;
+    height: 150px; /* reduced height to make product tiles smaller while keeping image quality */
     background: #f0f0f0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4rem;
+    font-size: 3rem;
     cursor: zoom-in;
+}
+
+/* Ensure images scale down but keep aspect ratio and visual quality */
+.product-image img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    image-rendering: auto; /* prefer browser default smoothing for quality */
+}
+
+/* Slightly smaller product tiles on narrow screens */
+@media (max-width: 900px) {
+    .product-image { height: 130px; }
+}
+
+@media (max-width: 480px) {
+    .product-image { height: 110px; }
+    .product-grid { gap: 1rem; }
 }
 
 /* Hide only the decorative zoom icon inside product images; functionality remains */
@@ -967,6 +994,26 @@ nav ul.show {
 /* Cart PAY NOW button */
 #cart-pay-btn { margin-top: 8px; padding: 10px 16px; border-radius: 6px; }
 #cart-pay-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+/* Highlighted state when user is directed to Payment Options from Cart */
+.payment.payment-active {
+    outline: 3px solid rgba(220,20,60,0.08);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.12);
+    transform: translateY(-4px);
+    transition: box-shadow 220ms ease, transform 220ms ease, outline 220ms ease;
+    position: relative;
+    z-index: 600;
+}
+
+/* Close/Exit button placed next to the Payment heading */
+.payment-exit-btn {
+    display: inline-block;
+    margin-left: 12px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+}
+.payment-exit-btn:focus { outline: 2px solid rgba(220,20,60,0.28); }
 
 .quantity-controls {
     display: flex;
@@ -1690,13 +1737,7 @@ nav ul.show {
 }
 #receipt-content h3 { margin-top: 0; margin-bottom: 8px; }
 #receipt-content table th, #receipt-content table td { border-bottom: 1px solid #eee; padding: 8px; }
-/* Add these styles (append to your styles.css) to style the collapsible details area */
-
-.receipt-card .receipt-details {
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 8px 20px rgba(16,24,40,0.04);
+6,24,40,0.04);
   margin-top: 8px;
   transition: all 180ms ease;
 }

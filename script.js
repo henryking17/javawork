@@ -100,7 +100,6 @@ function renderReceipts() {
         <div style="text-align:right;">
           <div style="font-weight:700; color:#e74c3c;">${escapeHtml(order.total || '')}</div>
           <div style="margin-top:8px;">
-            <button class="btn toggle-receipt" data-order-id="${escapeHtml(order.orderId)}" aria-expanded="false">Expand</button>
             <a class="btn" href="receipt.html?orderId=${orderIdEsc}&type=${type}" target="_blank" rel="noopener noreferrer" style="margin-left:8px;">Open</a>
           </div>
         </div>
@@ -110,46 +109,49 @@ function renderReceipts() {
 
     receiptsListEl.appendChild(card);
 
-    // wire up toggle button and inline print
+    // wire up toggle button and inline print (toggle removed; keep details placeholder for future features)
     const toggleBtn = card.querySelector('.toggle-receipt');
     const detailsEl = card.querySelector('.receipt-details');
 
-    toggleBtn.addEventListener('click', () => {
-      const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-      if (!expanded) {
-        // Expand: populate details
-        detailsEl.innerHTML = renderReceiptHtml(order);
-        detailsEl.style.display = 'block';
-        detailsEl.setAttribute('aria-hidden', 'false');
-        toggleBtn.setAttribute('aria-expanded', 'true');
-        toggleBtn.textContent = 'Collapse';
+    // If a toggle button exists (for backward compatibility), attach handler — otherwise nothing happens.
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+        if (!expanded) {
+          // Expand: populate details
+          detailsEl.innerHTML = renderReceiptHtml(order);
+          detailsEl.style.display = 'block';
+          detailsEl.setAttribute('aria-hidden', 'false');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          toggleBtn.textContent = 'Collapse';
 
-        // Hook up inline print for this expanded block
-        const printBtn = detailsEl.querySelector('.inline-print');
-        if (printBtn) {
-          printBtn.addEventListener('click', () => {
-            // Print only the inline receipt content
-            const printable = detailsEl.innerHTML;
-            const w = window.open('', '_blank', 'width=800,height=600');
-            if (!w) {
-              alert('Please allow popups to print receipt.');
-              return;
-            }
-            w.document.write(`<html><head><title>Receipt ${escapeHtml(order.orderId)}</title><style>body{font-family:Arial,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border-bottom:1px solid #eee;}</style></head><body>${printable}<div style="text-align:center;margin-top:12px;"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`);
-            w.document.close();
-            w.focus();
-          });
+          // Hook up inline print for this expanded block
+          const printBtn = detailsEl.querySelector('.inline-print');
+          if (printBtn) {
+            printBtn.addEventListener('click', () => {
+              // Print only the inline receipt content
+              const printable = detailsEl.innerHTML;
+              const w = window.open('', '_blank', 'width=800,height=600');
+              if (!w) {
+                alert('Please allow popups to print receipt.');
+                return;
+              }
+              w.document.write(`<html><head><title>Receipt ${escapeHtml(order.orderId)}</title><style>body{font-family:Arial,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{padding:8px;border-bottom:1px solid #eee;}</style></head><body>${printable}<div style="text-align:center;margin-top:12px;"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`);
+              w.document.close();
+              w.focus();
+            });
+          }
+
+        } else {
+          // Collapse
+          detailsEl.style.display = 'none';
+          detailsEl.setAttribute('aria-hidden', 'true');
+          toggleBtn.setAttribute('aria-expanded', 'false');
+          toggleBtn.textContent = 'Expand';
+          detailsEl.innerHTML = '';
         }
-
-      } else {
-        // Collapse
-        detailsEl.style.display = 'none';
-        detailsEl.setAttribute('aria-hidden', 'true');
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.textContent = 'Expand';
-        detailsEl.innerHTML = '';
-      }
-    });
+      });
+    }
   });
 }
 

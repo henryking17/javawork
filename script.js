@@ -22,13 +22,17 @@ function renderReceiptHtml(order) {
 
   const addressRow = order.address ? `<div><strong>Address:</strong> ${escapeHtml(order.address)}</div>` : '';
   const emailRow = order.email ? `<div><strong>Email:</strong> ${escapeHtml(order.email)}</div>` : '';
+  const deliveryRow = order.delivery_type ? `<div><strong>Delivery Type:</strong> ${escapeHtml(order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery')}</div>` : '';
+  const paymentText = order.payment_method ? order.payment_method : (order._type === 'paid' ? 'Paid via Paystack' : (order.delivery_type ? (order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery') : 'Cash on Delivery'));
 
   return `
     <div class="receipt-inline">
-      <div style="color:#666; margin-bottom:8px;">${escapeHtml(order.payment_method || (order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'))}</div>
+      <div style="text-align:center; margin-bottom:8px;"><img src="Copilot_20251226_202609.png" alt="Cympet and Co Logo" style="height:40px; display:inline-block;"></div>
+      <div style="color:#666; margin-bottom:8px;">${escapeHtml(paymentText)}</div>
       <div><strong>Customer:</strong> ${escapeHtml(order.name || '')}</div>
       ${order.phone ? `<div><strong>Phone:</strong> ${escapeHtml(order.phone)}</div>` : ''}
       ${emailRow}
+      ${deliveryRow}
       ${addressRow}
       <div style="margin-top:10px;"><strong>Items</strong></div>
       <table style="width:100%; border-collapse:collapse; margin-top:6px;">
@@ -91,7 +95,7 @@ function renderReceipts() {
         <div>
           <div style="font-weight:700;">${escapeHtml(order.orderId)}</div>
           <div style="color:#666; font-size:0.95rem;">${escapeHtml(order.name || '')} • ${escapeHtml(order.phone || '')} • ${escapeHtml(order.email || '')}</div>
-          <div style="color:#666; font-size:0.92rem; margin-top:6px;">${type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}</div>
+          <div style="color:#666; font-size:0.92rem; margin-top:6px;">${type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery'}${order.delivery_type ? ' • ' + (order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery') : ''}</div>
         </div>
         <div style="text-align:right;">
           <div style="font-weight:700; color:#e74c3c;">${escapeHtml(order.total || '')}</div>
@@ -163,11 +167,14 @@ function viewReceipt(orderId, typeHint) {
   }
 
   const lines = [];
+  lines.push(`<div style="text-align:center; margin-bottom:8px;"><img src="Copilot_20251226_202609.png" alt="Cympet and Co Logo" style="height:48px; display:inline-block;"></div>`);
   lines.push(`<h3>Receipt — ${escapeHtml(order.orderId)}</h3>`);
-  lines.push(`<div style="color:#666; margin-bottom:8px;">${escapeHtml(order.payment_method || (typeHint === 'paid' ? 'Paystack' : 'Cash on Delivery'))}</div>`);
+  const displayMethod = order.payment_method ? order.payment_method : (typeHint === 'paid' ? 'Paid via Paystack' : (order.delivery_type ? (order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery') : 'Cash on Delivery'));
+  lines.push(`<div style="color:#666; margin-bottom:8px;">${escapeHtml(displayMethod)}</div>`);
   lines.push(`<div><strong>Customer:</strong> ${escapeHtml(order.name || '')}</div>`);
   if (order.phone) lines.push(`<div><strong>Phone:</strong> ${escapeHtml(order.phone)}</div>`);
   if (order.email) lines.push(`<div><strong>Email:</strong> ${escapeHtml(order.email)}</div>`);
+  if (order.delivery_type) lines.push(`<div><strong>Delivery Type:</strong> ${escapeHtml(order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery')}</div>`);
   if (order.address) lines.push(`<div><strong>Address:</strong> ${escapeHtml(order.address)}</div>`);
   lines.push(`<div style="margin-top:10px;"><strong>Items</strong></div>`);
   lines.push('<table style="width:100%; border-collapse:collapse; margin-top:6px;">');
@@ -634,6 +641,214 @@ if (mobileSearchBtn && mobileSearchInput) {
 // Paystack initialization (replace with your own public key if needed)
 const paystackPublicKey = 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1';
 
+// Bank transfer details (used for copy-to-clipboard helper in Paystack bank transfer flows)
+const BANK_ACCOUNT_NUMBER = '0123456789';
+const BANK_NAME = 'Zenith Bank';
+const BANK_ACCOUNT_NAME = 'Cympet Shop';
+
+// Show bank instructions panel for a given context ('checkout' | 'delivery')
+function showBankInstructions(context) {
+    const containerId = (context === 'delivery') ? 'delivery-bank-instructions' : 'checkout-bank-instructions';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const accEl = container.querySelector('.bank-account-number');
+    if (accEl) accEl.textContent = `${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`;
+    container.style.display = '';
+}
+
+function hideBankInstructions(context) {
+    const containerId = (context === 'delivery') ? 'delivery-bank-instructions' : 'checkout-bank-instructions';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.style.display = 'none';
+}
+
+function copyToClipboard(text, btn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            const prev = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = prev, 1500);
+        }).catch(() => {
+            fallbackCopy(text, btn);
+        });
+    } else {
+        fallbackCopy(text, btn);
+    }
+}
+
+function fallbackCopy(text, btn) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        const prev = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = prev, 1500);
+    } catch (e) {
+        alert('Copy not supported in this browser. Account number: ' + text);
+    }
+    ta.remove();
+}
+
+// Attach copy buttons once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const copyDeliveryBtn = document.getElementById('copy-delivery-bank-btn');
+    if (copyDeliveryBtn) {
+        copyDeliveryBtn.addEventListener('click', () => copyToClipboard(`${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`, copyDeliveryBtn));
+    }
+    const copyCheckoutBtn = document.getElementById('copy-checkout-bank-btn');
+    if (copyCheckoutBtn) {
+        copyCheckoutBtn.addEventListener('click', () => copyToClipboard(`${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`, copyCheckoutBtn));
+    }
+});
+
+// Build "Shop by Category" area (keeps Featured Products unchanged)
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const productsGrid = document.querySelector('#products .product-grid');
+    if (!productsGrid) return;
+
+    const originalCards = Array.from(productsGrid.querySelectorAll('.product-card'));
+    const categories = [
+      { name: 'Cooling & Fans', test: t => /\b(fan|ceiling fan|standing fan|wall fan|air conditioner|air)\b/i.test(t) },
+      { name: 'Kitchen Appliances', test: t => /\b(blender|freezer|refrigerator|fridge|microwave|oven)\b/i.test(t) },
+      { name: 'Power & Generators', test: t => /\b(generator|generators|stabilizer|stabilizers|inverter)\b/i.test(t) },
+      { name: 'Audio & Music', test: t => /\b(sound|microphone|microphones|speaker|sound system|soundbar)\b/i.test(t) },
+      { name: 'Computing & Accessories', test: t => /\b(laptop|computer|pc|keyboard|mouse|printer)\b/i.test(t) }
+    ];
+
+    const map = new Map();
+    categories.forEach(c => map.set(c.name, []));
+    map.set('Other', []);
+
+    originalCards.forEach(card => {
+      const title = card.querySelector('h3') ? card.querySelector('h3').textContent.trim() : '';
+      let matched = false;
+      for (const c of categories) {
+        if (c.test(title)) { map.get(c.name).push(card); matched = true; break; }
+      }
+      if (!matched) map.get('Other').push(card);
+    });
+
+    const barInner = document.getElementById('categories-inner');
+    const productsArea = document.getElementById('category-products');
+    if (!barInner || !productsArea) return;
+
+    barInner.innerHTML = '';
+    const icons = {
+      'Cooling & Fans': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g transform="translate(12 12)"><rect x="-1" y="-6" width="2" height="6" rx="1"/><rect x="-1" y="-6" width="2" height="6" rx="1" transform="rotate(120)"/><rect x="-1" y="-6" width="2" height="6" rx="1" transform="rotate(240)"/></g></svg>
+      `,
+      'Kitchen Appliances': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="8" rx="1"/><rect x="7" y="4" width="10" height="3" rx="1"/></svg>
+      `,
+      'Power & Generators': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v4a5 5 0 0 0 10 0v-4h-2v4a3 3 0 0 1-6 0v-4z"/><rect x="9" y="2" width="2" height="3"/><rect x="13" y="2" width="2" height="3"/></svg>
+      `,
+      'Audio & Music': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
+      `,
+      'Computing & Accessories': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1"/><rect x="1" y="19" width="22" height="2"/></svg>
+      `,
+      'Other': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.27 6.96L12 11.57 20.73 6.96"/></svg>
+      `
+    };
+
+    const available = Array.from(map.entries()).filter(([k,v]) => v && v.length > 0);
+
+    // helper to render a category into the productsArea. If scroll === true, the view will scroll to the category area.
+    function renderCategory(cards, btn, scroll) {
+      // active state
+      document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      // render cards for this category (clone so featured remains unchanged)
+      productsArea.innerHTML = '';
+      if (!cards || cards.length === 0) {
+        productsArea.innerHTML = '<div class="category-empty">No products in this category.</div>';
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'category-grid-full';
+
+      cards.forEach(orig => {
+        const clone = orig.cloneNode(true);
+
+        // ensure add-to-cart on clones works (create if absent)
+        let addBtn = clone.querySelector('button.add-now');
+        if (!addBtn) {
+          addBtn = document.createElement('button');
+          addBtn.className = 'btn add-now';
+          addBtn.textContent = 'Add to Cart';
+          addBtn.style.margin = '12px';
+          clone.appendChild(addBtn);
+        }
+        // bind add-to-cart
+        addBtn.addEventListener('click', function(e) { e.stopPropagation(); const t = clone.querySelector('h3') ? clone.querySelector('h3').textContent.trim() : ''; if (t) addToCart(t); });
+
+        // ensure image/lightbox works on clones
+        const img = clone.querySelector('.product-image img');
+        if (img) {
+          img.addEventListener('click', function(e) { e.stopPropagation(); openImageModal(this.src); });
+          const container = clone.querySelector('.product-image');
+          if (container) container.addEventListener('click', function(e) { if (e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'img') return; e.stopPropagation(); openImageModal(img.src); });
+        }
+
+        // clicking clone opens product modal
+        clone.addEventListener('click', function(e) {
+          if (e.target.classList.contains('add-now') || e.target.classList.contains('zoom-icon')) return;
+          const title = this.querySelector('h3') ? this.querySelector('h3').textContent.trim() : '';
+          const description = this.querySelector('p') ? this.querySelector('p').textContent.trim() : '';
+          const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
+
+          document.getElementById('modal-title').textContent = title;
+          document.getElementById('modal-image').src = imageSrc;
+          document.getElementById('modal-description').textContent = description;
+          const modalPriceEl = document.getElementById('modal-price');
+          if (modalPriceEl) modalPriceEl.textContent = getProductDetails(title).priceStr || '';
+
+          document.getElementById('product-details').style.display = 'block';
+          document.getElementById('modal-specs').style.display = 'none';
+          document.getElementById('modal-variants').style.display = 'none';
+          modal.style.display = 'block';
+        });
+
+        grid.appendChild(clone);
+      });
+
+      productsArea.appendChild(grid);
+      if (scroll) {
+        try { productsArea.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
+      }
+    }
+
+    available.forEach(([name, cards], idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'category-item';
+      btn.type = 'button';
+      btn.dataset.name = name;
+      btn.innerHTML = `<div class="icon">${icons[name] || '📁'}</div><div class="label">${name}</div>`;
+
+      btn.addEventListener('click', () => renderCategory(cards, btn, true));
+
+      barInner.appendChild(btn);
+    });
+
+    // Do not auto-open any category on load. Show a small placeholder prompting selection.
+    productsArea.innerHTML = '<div class="category-placeholder">Click a category to view products.</div>'; 
+
+  } catch (err) {
+    console.error('Error building categories:', err);
+  }
+});
+
 // Web3Forms API key (used for sending order summary emails)
 const WEB3FORMS_KEY = '22b0c187-7f5e-48e5-91cf-d3481d9cd44f';
 
@@ -812,11 +1027,10 @@ const imageModalClose = document.getElementById('image-modal-close');
 const lightboxImage = document.getElementById('lightbox-image');
 
 document.querySelectorAll('.product-image').forEach(container => {
-    // zoom icon
+    // zoom icon (kept in DOM but visually hidden for product cards)
     const zoom = document.createElement('span');
     zoom.className = 'zoom-icon';
     zoom.setAttribute('aria-hidden', 'true');
-    zoom.textContent = '🔍';
     container.appendChild(zoom);
 
     const img = container.querySelector('img');
@@ -1019,6 +1233,18 @@ function showCart() {
     }
 
     document.getElementById('cart-total').textContent = `Total: ${formatPrice(total)}`;
+
+    // Enable/disable the PAY NOW button depending on cart contents
+    const cartPayBtn = document.getElementById('cart-pay-btn');
+    if (cartPayBtn) {
+        if (total <= 0) {
+            cartPayBtn.disabled = true;
+        } else {
+            cartPayBtn.disabled = false;
+            cartPayBtn.textContent = 'PAY NOW';
+        }
+    }
+
     document.getElementById('cart-modal').style.display = 'block';
 }
 
@@ -1263,11 +1489,15 @@ function checkout(customerInfo = {}) {
 
             // Refresh receipts UI (if visible)
             renderReceipts();
+            // Hide any bank instruction panel shown for checkout
+            try { hideBankInstructions('checkout'); } catch (e) {}
         },
         onClose: function() {
             alert('Payment cancelled.');
+            try { hideBankInstructions('checkout'); } catch (e) {}
         }
     });
+    try { showBankInstructions('checkout'); } catch (e) {}
     handler.openIframe();
 }
 
@@ -1277,10 +1507,20 @@ function initiateCashOnDelivery() {
         alert('Your cart is empty! Add items before placing an order.');
         return;
     }
-    showDeliveryModal();
+    showDeliveryModal('delivery');
 }
 
-function showDeliveryModal() {
+// Pickup flow (same behavior as home delivery)
+function initiatePickup() {
+    if (Object.keys(cart).length === 0) {
+        alert('Your cart is empty! Add items before placing an order.');
+        return;
+    }
+    showDeliveryModal('pickup');
+}
+
+// showDeliveryModal(mode) -- mode: 'delivery' (default) or 'pickup'
+function showDeliveryModal(mode = 'delivery') {
     const deliveryCartItems = document.getElementById('delivery-cart-items');
     deliveryCartItems.innerHTML = '';
     let total = 0;
@@ -1308,6 +1548,54 @@ function showDeliveryModal() {
     }
 
     document.getElementById('delivery-total').textContent = `Total: ${formatPrice(total)}`;
+
+    // Update modal text/labels depending on mode and show/hide address fields
+    const modal = document.getElementById('delivery-modal');
+    if (modal) {
+      const h2 = modal.querySelector('h2');
+      const p = modal.querySelector('p');
+      const modeInput = document.getElementById('delivery-mode');
+      const deliveryAddrGroup = document.getElementById('delivery-address-group');
+      const pickupAddrGroup = document.getElementById('pickup-address-group');
+      const deliveryAddrInput = document.getElementById('delivery-address');
+      const deliveryCityGroup = document.getElementById('delivery-city-group');
+      const deliveryCityInput = document.getElementById('delivery-city');
+      const feeWarning = document.getElementById('delivery-fee-warning');
+      if (mode === 'pickup') {
+        if (h2) h2.textContent = 'Pickup Details';
+        if (p) p.textContent = 'Please provide your pickup information. Payment will be collected upon pickup.';
+        if (modeInput) modeInput.value = 'pickup';
+        // hide editable delivery address and city
+        if (deliveryAddrGroup) deliveryAddrGroup.style.display = 'none';
+        if (deliveryCityGroup) deliveryCityGroup.style.display = 'none';
+        // show fixed pickup address
+        if (pickupAddrGroup) pickupAddrGroup.style.display = '';
+        // set hidden value into delivery-address input so form submissions include the pickup address
+        const pickupAddress = 'No 41 shogbamu street bale bus stop New garage lagos';
+        if (deliveryAddrInput) { deliveryAddrInput.value = pickupAddress; deliveryAddrInput.required = false; }
+        if (deliveryCityInput) { deliveryCityInput.value = 'Lagos'; deliveryCityInput.required = false; }
+        // hide delivery fees warning for pickup
+        if (feeWarning) feeWarning.style.display = 'none';
+      } else {
+        if (h2) h2.textContent = 'Delivery Details';
+        if (p) p.textContent = 'Please provide your delivery information. Payment will be collected upon delivery.';
+        if (modeInput) modeInput.value = 'delivery';
+        // show editable delivery address and city
+        if (deliveryAddrGroup) deliveryAddrGroup.style.display = '';
+        if (deliveryCityGroup) deliveryCityGroup.style.display = '';
+        // hide pickup address display
+        if (pickupAddrGroup) pickupAddrGroup.style.display = 'none';
+        // clear any auto-filled values set previously
+        if (deliveryAddrInput) { deliveryAddrInput.value = ''; deliveryAddrInput.required = true; }
+        if (deliveryCityInput) { deliveryCityInput.value = ''; deliveryCityInput.required = true; }
+        // show delivery fees warning for home delivery
+        if (feeWarning) feeWarning.style.display = '';
+      }
+    }
+
+    // Update the Pay Now button label for this mode
+    updateDeliveryPayBtnLabel(mode);
+
     document.getElementById('delivery-modal').style.display = 'block';
 }
 
@@ -1316,6 +1604,19 @@ function closeDeliveryModal() {
     document.getElementById('delivery-modal').style.display = 'none';
 }
 
+// Cart PAY NOW button wiring
+document.addEventListener('DOMContentLoaded', () => {
+  const cartPayBtn = document.getElementById('cart-pay-btn');
+  if (!cartPayBtn) return;
+  cartPayBtn.addEventListener('click', () => {
+    if (Object.keys(cart).length === 0) {
+      alert('Your cart is empty! Add items before paying.');
+      return;
+    }
+    // Open checkout modal so we collect name/phone/email and then call checkout()
+    showCheckoutModal();
+  });
+});
 // -------------------- Delivery form submission (sends email + stores locally) --------------------
 const deliveryForm = document.getElementById('delivery-form');
 const deliverySubmitBtn = document.getElementById('delivery-submit-btn');
@@ -1332,9 +1633,18 @@ if (deliveryForm) {
         const city = document.getElementById('delivery-city').value.trim();
         const notes = document.getElementById('delivery-notes').value.trim();
 
-        if (!name || !phone || !address || !city) {
-            showDeliveryStatus('Please fill in all required fields.', 'error');
-            return;
+        const mode = (document.getElementById('delivery-mode') && document.getElementById('delivery-mode').value) ? document.getElementById('delivery-mode').value : 'delivery';
+        if (mode === 'delivery') {
+            if (!name || !phone || !address || !city) {
+                showDeliveryStatus('Please fill in all required fields.', 'error');
+                return;
+            }
+        } else {
+            // pickup: address and city are auto-filled to the pickup location; only require name and phone
+            if (!name || !phone) {
+                showDeliveryStatus('Please fill in your name and phone number.', 'error');
+                return;
+            }
         }
         if (!isValidPhone(phone)) {
             showDeliveryStatus('Please enter a valid phone number.', 'error');
@@ -1365,6 +1675,10 @@ if (deliveryForm) {
                 });
             }
 
+            const mode = (document.getElementById('delivery-mode') && document.getElementById('delivery-mode').value) ? document.getElementById('delivery-mode').value : 'delivery';
+
+            const paymentMethod = (mode === 'pickup') ? 'Cash on Pickup' : 'Cash on Delivery';
+
             const deliveryData = {
                 name,
                 phone,
@@ -1375,19 +1689,20 @@ if (deliveryForm) {
                 cart: items,
                 total: formatPrice(total),
                 timestamp: new Date().toISOString(),
-                orderId: 'COD_' + Math.floor((Math.random() * 1000000) + 1),
-                payment_method: 'Cash on Delivery'
+                orderId: (mode === 'pickup' ? 'PUP_' : 'COD_') + Math.floor((Math.random() * 1000000) + 1),
+                payment_method: paymentMethod,
+                delivery_type: mode
             };
 
-            // store COD order locally for receipts
+            // store order locally for receipts (use same handler so receipts list shows both types)
             saveCODOrder(deliveryData);
 
-            // send email
+            // send email (pass type for subject/content)
             try {
-                await sendOrderEmail(deliveryData, 'cod');
-                console.log('COD order email sent');
+                await sendOrderEmail(deliveryData, mode === 'pickup' ? 'pickup' : 'cod');
+                console.log('Order email sent');
             } catch (err) {
-                console.error('Error sending COD email:', err);
+                console.error('Error sending order email:', err);
             }
 
             // Clear cart and update UI
@@ -1396,7 +1711,8 @@ if (deliveryForm) {
             updateCartCount();
 
             deliveryForm.reset();
-            showDeliveryStatus(`Order placed successfully! Your order ID is ${deliveryData.orderId}. We will contact you at ${phone} for delivery arrangements.`, 'success');
+            const arrangementText = (deliveryData.delivery_type === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
+            showDeliveryStatus(`Order placed successfully! Your order ID is ${deliveryData.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
 
             deliverySubmitBtn.disabled = false;
             deliverySubmitBtn.textContent = 'Confirm Order';
@@ -1425,6 +1741,163 @@ function showDeliveryStatus(message, type) {
         }, 5000);
     }
 }
+
+// Update the Pay Now button label inside the delivery modal based on mode (delivery | pickup)
+function updateDeliveryPayBtnLabel(mode) {
+    const payBtn = document.getElementById('delivery-pay-btn');
+    if (!payBtn) return;
+    payBtn.textContent = (mode === 'pickup') ? 'PAY NOW FOR PICKUP' : 'PAY NOW FOR HOME DELIVERY';
+}
+
+// Wire up Delivery Pay Now button (uses Paystack) — validates fields and starts an inline payment
+document.addEventListener('DOMContentLoaded', () => {
+    const deliveryPayBtn = document.getElementById('delivery-pay-btn');
+    if (!deliveryPayBtn) return;
+
+    deliveryPayBtn.addEventListener('click', () => {
+        if (Object.keys(cart).length === 0) {
+            alert('Your cart is empty! Add items before paying.');
+            return;
+        }
+
+        const name = (document.getElementById('delivery-name').value || '').trim();
+        const phone = (document.getElementById('delivery-phone').value || '').trim();
+        const email = (document.getElementById('delivery-email') ? document.getElementById('delivery-email').value : '') || '';
+        const address = (document.getElementById('delivery-address') ? document.getElementById('delivery-address').value : '') || '';
+        const city = (document.getElementById('delivery-city') ? document.getElementById('delivery-city').value : '') || '';
+        const notes = (document.getElementById('delivery-notes') ? document.getElementById('delivery-notes').value : '') || '';
+        const mode = (document.getElementById('delivery-mode') && document.getElementById('delivery-mode').value) ? document.getElementById('delivery-mode').value : 'delivery';
+
+        // Basic validation (same as regular confirm flow)
+        if (mode === 'delivery') {
+            if (!name || !phone || !address || !city) {
+                showDeliveryStatus('Please fill in all required fields.', 'error');
+                return;
+            }
+        } else {
+            if (!name || !phone) {
+                showDeliveryStatus('Please fill in your name and phone number.', 'error');
+                return;
+            }
+        }
+        if (!isValidPhone(phone)) {
+            showDeliveryStatus('Please enter a valid phone number.', 'error');
+            return;
+        }
+        if (email && !isValidEmail(email)) {
+            showDeliveryStatus('Please enter a valid email address.', 'error');
+            return;
+        }
+
+        // Build items and totals similar to checkout()
+        const checkoutSnapshot = JSON.parse(JSON.stringify(cart));
+        const items = [];
+        let paymentTotal = 0;
+        for (const productKey in checkoutSnapshot) {
+            const details = getProductDetails(productKey);
+            const quantity = checkoutSnapshot[productKey];
+            const itemTotal = details.unit_price * quantity;
+            paymentTotal += itemTotal;
+            items.push({
+                name: details.name,
+                description: details.description,
+                unit_price: details.priceStr,
+                quantity,
+                item_total: formatPrice(itemTotal)
+            });
+        }
+
+        if (paymentTotal <= 0) {
+            alert('Cart total is zero. Add items before checkout.');
+            return;
+        }
+
+        if (typeof PaystackPop === 'undefined') {
+            alert('Paystack is not loaded. Please try again later.');
+            return;
+        }
+
+        const amountInKobo = paymentTotal * 100;
+        const itemsSummary = items.map(i => `${i.name} x${i.quantity}`).join(' ; ');
+
+        // Disable button while processing
+        const originalText = deliveryPayBtn.textContent;
+        deliveryPayBtn.disabled = true;
+        deliveryPayBtn.textContent = 'Processing payment...';
+
+        const handler = PaystackPop.setup({
+            key: paystackPublicKey,
+            email: email || (localStorage.getItem('customerInfo') ? (JSON.parse(localStorage.getItem('customerInfo')).email || 'customer@example.com') : 'customer@example.com'),
+            amount: amountInKobo,
+            currency: 'NGN',
+            ref: 'PS_' + Math.floor((Math.random() * 1000000000) + 1),
+            metadata: {
+                custom_fields: [
+                    { display_name: "Items", variable_name: "items", value: itemsSummary },
+                    { display_name: "Order Summary (total)", variable_name: "order_summary", value: formatPrice(paymentTotal) },
+                    { display_name: "Customer Name", variable_name: "customer_name", value: name },
+                    { display_name: "Delivery Type", variable_name: "delivery_type", value: mode },
+                    { display_name: "Delivery Address", variable_name: "delivery_address", value: address }
+                ]
+            },
+            callback: function(response) {
+                alert('Payment successful! Reference: ' + response.reference);
+
+                const paymentOrder = {
+                    name,
+                    email,
+                    phone,
+                    cart: items,
+                    total: formatPrice(paymentTotal),
+                    timestamp: new Date().toISOString(),
+                    orderId: 'PS_' + response.reference,
+                    payment_reference: response.reference,
+                    payment_method: 'Paystack',
+                    delivery_type: mode,
+                    address,
+                    city,
+                    notes
+                };
+
+                // Store paid order locally and notify
+                savePaidOrder(paymentOrder);
+                sendOrderEmail(paymentOrder, 'payment').catch(err => console.error('Error sending payment email:', err));
+
+                // Clear cart and update UI
+                cart = {};
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateCartCount();
+
+                // Reset form, show status and refresh receipts
+                if (deliveryForm) deliveryForm.reset();
+                const arrangementText = (mode === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
+                showDeliveryStatus(`Payment successful! Your order ID is ${paymentOrder.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
+
+                // Hide bank instructions and re-enable button
+                hideBankInstructions('delivery');
+                deliveryPayBtn.disabled = false;
+                deliveryPayBtn.textContent = originalText;
+
+                // Close after a short delay
+                setTimeout(() => {
+                    closeDeliveryModal();
+                }, 2000);
+
+                // Refresh receipts UI
+                renderReceipts();
+            },
+            onClose: function() {
+                alert('Payment cancelled.');
+                deliveryPayBtn.disabled = false;
+                deliveryPayBtn.textContent = originalText;
+                hideBankInstructions('delivery');
+            }
+        });
+
+        try { showBankInstructions('delivery'); } catch (e) {}
+        handler.openIframe();
+    });
+});
 
 // -------------------- Email sending (Web3Forms) --------------------
 async function sendOrderEmail(orderData, type = 'order') {

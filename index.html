@@ -81,7 +81,19 @@
 
     <section id="products" class="products">
         <div class="container">
-            <h2>Featured Products</h2>
+            <!-- Jumia-style categories bar (shows products per category; Featured remains unchanged) -->
+            <div id="categories-section" class="categories-section">
+                <h2 class="animated-heading">Shop by Category</h2>
+                <div class="categories-bar">
+                    <div id="categories-inner" class="categories-inner" role="list"></div>
+                    <a href="#featured-products" class="all-categories">See featured</a>
+                </div>
+                <div id="category-products" class="category-products">
+                    <!-- Populated dynamically with products belonging to the selected category -->
+                </div>
+            </div>
+
+            <h2 id="featured-products" class="animated-heading">Featured Products</h2>
             <div class="product-grid">
                 <div class="product-card">
                     <div class="product-image">
@@ -262,7 +274,7 @@
 
       <!-- Send us a Message (right column) -->
       <div class="contact-form card form-card" aria-labelledby="contact-form-title">
-        <h3 id="contact-form-title">Send us a Message</h3>
+        <h3 id="contact-form-title">Customer Service</h3>
 
         <form id="contact-form" action="https://api.web3forms.com/submit" method="POST">
           <input type="hidden" name="access_key" value="22b0c187-7f5e-48e5-91cf-d3481d9cd44f">
@@ -322,6 +334,10 @@
                     <i class="fas fa-money-bill-wave" style="font-size: 40px; color: #972768;"></i>
                     <p>Home Delivery</p>
                 </div>
+                <div class="payment-method" onclick="initiatePickup()">
+                    <div style="font-size:40px;">🏪</div>
+                    <p>Pickup</p>
+                </div>
             </div>
         </div>
     </section>
@@ -340,24 +356,7 @@
             <p class="newsletter-note">Exclusive offers, product launches and more — delivered weekly.</p>
           </div>
 
-          <div class="apps-social">
-            <div class="apps">
-              <h4>Download our app</h4>
-              <div class="app-links">
-                <a href="#" class="app-link">App Store</a>
-                <a href="#" class="app-link">Google Play</a>
-              </div>
-            </div>
-
-            <div class="social">
-              <h4>Follow us</h4>
-              <div class="social-icons">
-                <a href="#" aria-label="Facebook">📘</a>
-                <a href="#" aria-label="Twitter">🐦</a>
-                <a href="#" aria-label="Instagram">📸</a>
-              </div>
-            </div>
-          </div>
+          <!-- Apps/social removed as requested -->
         </div>
       </div>
 
@@ -456,6 +455,9 @@
                 <!-- Cart items will be populated here -->
             </div>
             <div id="cart-total">Total: ₦0</div>
+            <div style="text-align:center; margin-top:12px;">
+                <button id="cart-pay-btn" class="btn primary" type="button">PAY NOW</button>
+            </div>
             <div id="paypal-button-container"></div>
         </div>
     </div>
@@ -487,6 +489,16 @@
             <button type="button" class="btn primary" id="checkout-pay-btn">Pay Now</button>
             <button type="button" class="btn ghost" id="checkout-cancel-btn">Cancel</button>
           </div>
+
+          <div id="checkout-bank-instructions" style="display:none; margin-top:12px; padding:10px; border-radius:6px; background:#fff7ed; border:1px solid #fbd38d;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div style="font-size:0.95rem; color:#92400e;"><strong>Bank Transfer Details:</strong> <span class="bank-account-number">0123456789 (Zenith Bank)</span></div>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn" id="copy-checkout-bank-btn">Copy Account Number</button>
+              </div>
+            </div>
+            <div style="font-size:0.85rem; color:#92400e; margin-top:6px;">If you choose bank transfer in Paystack, use the account above and include the transaction reference.</div>
+          </div>
         </form>
         <div id="checkout-msg" style="margin-top:8px;"></div>
       </div>
@@ -498,8 +510,11 @@
             <span class="close" onclick="closeDeliveryModal()">&times;</span>
             <h2>Delivery Details</h2>
             <p>Please provide your delivery information. Payment will be collected upon delivery.</p>
+            <div id="delivery-fee-warning" style="display:none; margin:8px 0; color:#b91c1c;"><em><strong>LOGISTICS OR DELIVERY FEES ARE FULLY COVERED BY THE CUSTOMER UPON RECEIVING GOODS</strong></em></div>
              <form id="delivery-form" action="https://api.web3forms.com/submit" method="POST">
                            <input type="hidden" name="access_key" value="22b0c187-7f5e-48e5-91cf-d3481d9cd44f">
+                           <!-- mode: 'delivery' or 'pickup' -->
+                           <input type="hidden" id="delivery-mode" name="mode" value="delivery">
             
                 <div class="form-group">
                    
@@ -514,11 +529,15 @@
                     <label for="delivery-email">Email Address *</label>
                     <input type="email" id="delivery-email" name="delivery-email" placeholder="you@example.com">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="delivery-address-group">
                     <label for="delivery-address">Delivery Address *</label>
                     <textarea id="delivery-address" name="address" placeholder="Enter your complete delivery address" rows="3" required></textarea>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="pickup-address-group" style="display:none;">
+                    <label>Pickup Address</label>
+                    <div id="pickup-address-display" class="pickup-address">No 41 shogbamu street bale bus stop New garage lagos</div>
+                </div>
+                <div class="form-group" id="delivery-city-group">
                     <label for="delivery-city">City/State *</label>
                     <input type="text" id="delivery-city" name="city" placeholder="Enter city and state" required>
                 </div>
@@ -538,6 +557,18 @@
                 </div>
                 
                 <button type="submit" class="btn" id="delivery-submit-btn">Confirm Order</button>
+                <button type="button" class="btn primary" id="delivery-pay-btn">PAY NOW FOR HOME DELIVERY</button>
+
+                <div id="delivery-bank-instructions" style="display:none; margin-top:12px; padding:10px; border-radius:6px; background:#fff7ed; border:1px solid #fbd38d;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div style="font-size:0.95rem; color:#92400e;"><strong>Bank Transfer Details:</strong> <span class="bank-account-number">0123456789 (Zenith Bank)</span></div>
+                    <div style="display:flex; gap:8px;">
+                      <button type="button" class="btn" id="copy-delivery-bank-btn">Copy Account Number</button>
+                    </div>
+                  </div>
+                  <div style="font-size:0.85rem; color:#92400e; margin-top:6px;">If you choose bank transfer in Paystack, use the account above and include the transaction reference.</div>
+                </div>
+
                 <div id="delivery-status"></div>
             </form>
         </div>

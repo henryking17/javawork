@@ -61,11 +61,14 @@
 
       // Build HTML
       let html = '';
+      html += `<div style="text-align:center; margin-bottom:12px;"><img src="Copilot_20251226_202609.png" alt="Cympet and Co Logo" style="height:64px; display:inline-block;"></div>`;
       html += `<h1>Receipt — ${order.orderId}</h1>`;
-      html += `<div class="meta">${order.payment_method || (order._type === 'paid' ? 'Paid via Paystack' : 'Cash on Delivery')}</div>`;
+      const methodText = order.payment_method ? order.payment_method : (order._type === 'paid' ? 'Paid via Paystack' : (order.delivery_type ? (order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery') : 'Cash on Delivery'));
+      html += `<div class="meta">${methodText}</div>`;
       html += `<div><strong>Customer:</strong> ${order.name || ''}</div>`;
       if (order.phone) html += `<div><strong>Phone:</strong> ${order.phone}</div>`;
       if (order.email) html += `<div><strong>Email:</strong> ${order.email}</div>`;
+      if (order.delivery_type) html += `<div><strong>Delivery Type:</strong> ${order.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery'}</div>`;
       if (order.address) html += `<div><strong>Address:</strong> ${order.address}</div>`;
 
       html += `<div style="margin-top:12px;"><strong>Items</strong></div>`;

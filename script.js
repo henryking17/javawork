@@ -2447,10 +2447,11 @@ function subscribeNewsletter() {
   const email = (emailEl.value || '').trim();
   if (!email) { notifyError('Please enter a valid email address.'); return; }
 
-  // Build preview message using same text we send
-  const previewText = `Hi ${email.split('@')[0] || ''}!,\n\nThanks for subscribing to Cympet and Co. Congratulations — you're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`;
+  // Automatically generate acceptance message and send without preview
+  const messageText = `Hi ${email.split('@')[0] || ''}!\n\nThanks for subscribing to Cympet and Co. You're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`;
 
-  showNewsletterPreview(email, previewText);
+  // Directly send the subscription (this will persist on server and trigger confirmation email)
+  sendNewsletterSubscription(email, messageText);
 }
 
 function showNewsletterPreview(email, messageText) {
@@ -2579,94 +2580,205 @@ function hideNewsletterPreview() {
   if (!preview) return;
   preview.style.display = 'none';
 }
+// (Duplicate legacy function removed — using the unified `sendNewsletterSubscription(email, messageOverride)` above.)
 
-// Send to Web3Forms and save to server-side storage
-function sendNewsletterSubscription(email) {
-  const emailEl = document.getElementById('newsletter-email');
-  const accessKey = (window.NEWSLETTER_ACCESS_KEY && String(window.NEWSLETTER_ACCESS_KEY).trim()) ||
-                    (document.getElementById('newsletter-access-key') && document.getElementById('newsletter-access-key').value.trim()) || '';
+// Cookie consent helpers
+function setCookie(name, value, days) {
+  const d = new Date();
+  d.setTime(d.getTime() + ((days||365)*24*60*60*1000));
+  document.cookie = `${name}=${encodeURIComponent(value)};path=/;expires=${d.toUTCString()};SameSite=Lax`;
+}
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\/\\+^])/g, '\\$1') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
-  const payload = {
-    access_key: accessKey,
-    subject: 'Welcome to Cympet and Co Newsletter!',
-    email: email,
-    message: `Hi there!\n\nThanks for subscribing to Cympet and Co. Congratulations — you're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`,
-    html: `<p>Hi there,</p><p><strong>Thanks for subscribing to Cympet and Co.</strong> Congratulations — you're now signed up to receive exclusive offers, product launches and updates. Use code <strong>WELCOME10</strong> on your next purchase.</p><p>Best regards,<br/>Cympet and Co Team</p>`,
-    auto_response: true,
-    from_name: 'Cympet and Co',
-    data: { email }
-  };
+function showCookieBanner() {
+  const el = document.getElementById('cookie-consent');
+  if (!el) return;
+  el.setAttribute('aria-hidden', 'false');
+  // For accessibility: move focus to the primary action (Accept)
+  try {
+    const acceptBtn = document.getElementById('cookie-accept');
+    if (acceptBtn) {
+      acceptBtn.focus({ preventScroll: true });
+    }
+  } catch (e) { /* ignore if focus options unsupported */ }
+}
+function hideCookieBanner() {
+  const el = document.getElementById('cookie-consent');
+  if (!el) return;
+  el.setAttribute('aria-hidden', 'true');
+}
 
-  // If accessKey present, submit to Web3Forms; otherwise skip directly to server save
-  const doWeb3 = Boolean(accessKey);
+function applyCookieChoice(choice) {
+  // Persist choice in cookie and localStorage (both for convenience)
+  setCookie('cookie_consent', choice, 365);
+  try { localStorage.setItem('cookie_consent', choice); } catch (e) {}
 
-  const finishSuccess = () => {
-    // Save to backend storage
-    fetch('/newsletter-subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    }).then(r => r.json()).then(j => {
-      // success recorded on server; show success toast
-      notifySuccess("Thanks — you're subscribed! A confirmation email has been sent to your address.");
-      hideNewsletterPreview();
-      if (emailEl) emailEl.value = '';
-    }).catch(err => {
-      console.error('Server save error:', err);
-      // Still consider subscription successful if Web3Forms send succeeded
-      notifySuccess("Thanks — you're subscribed! (saved locally)");
-      hideNewsletterPreview();
-      if (emailEl) emailEl.value = '';
-    });
-  };
-
-  if (doWeb3) {
-    fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(res => res.json()).then(json => {
-      if (json && json.success) {
-        finishSuccess();
-      } else {
-        console.error('Web3Forms error:', json);
-        notifyError(json && json.message ? json.message : 'Subscription failed — please try again later.');
-      }
-    }).catch(err => {
-      console.error('Subscription error:', err);
-      notifyError('Subscription failed — please try again later.');
-    });
-  } else {
-    // Fallback: still save to backend if available, otherwise localStorage
-    fetch('/newsletter-subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    }).then(r => r.json()).then(j => {
-      notifySuccess("Thanks — you're subscribed! (saved)");
-      hideNewsletterPreview();
-      if (emailEl) emailEl.value = '';
-    }).catch(err => {
-      console.error('Server save error:', err);
-      try {
-        const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]');
-        list.push({ email: email, created: new Date().toISOString() });
-        localStorage.setItem('newsletter_subscribers', JSON.stringify(list));
-        notifySuccess("Thanks — you're subscribed! (saved locally)");
-        hideNewsletterPreview();
-        if (emailEl) emailEl.value = '';
-      } catch (e) {
-        console.error('Local subscription error:', e);
-        notifyError('Subscription failed — please try again.');
-      }
-    });
+  // Apply decision: enable or disable non-essential scripts
+  if (choice === 'accepted') {
+    enableNonEssential();
+    showManageButton();
+    // Confirmation toast
+    try { notifySuccess('Cookies accepted'); } catch (e) { /* ignore */ }
+    try { updateCookieBadge('accepted'); } catch (e) { /* ignore */ }
+  } else if (choice === 'declined') {
+    disableNonEssential();
+    showManageButton();
+    // Confirmation toast
+    try { notifySuccess('Cookies declined'); } catch (e) { /* ignore */ }
+    try { updateCookieBadge('declined'); } catch (e) { /* ignore */ }
   }
+
+  hideCookieBanner();
+}
+
+// Enable non-essential scripts (loads Google Analytics gtag.js when cookies are accepted)
+// Set `window.GA_MEASUREMENT_ID = 'G-XXXXXXX'` before calling if you want to override the placeholder.
+function enableNonEssential() {
+  if (window.nonEssentialEnabled) return; // already enabled
+  console.log('Cookie consent: accepted — enabling non-essential scripts (Google Analytics)');
+
+  const GA_ID = window.GA_MEASUREMENT_ID || 'G-XXXXXXX';
+
+  // Inject gtag.js script
+  if (!document.getElementById('ga-gtag')) {
+    const s = document.createElement('script');
+    s.id = 'ga-gtag';
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  // Initialize gtag (inline initializer)
+  if (!document.getElementById('ga-init')) {
+    const init = document.createElement('script');
+    init.id = 'ga-init';
+    init.text = "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '" + GA_ID + "');";
+    document.head.appendChild(init);
+  }
+
+  window.nonEssentialEnabled = true;
+
+  // Update UI affordance on the footer manage button
+  const btn = document.getElementById('open-cookie-manager');
+  if (btn) {
+    btn.title = 'Cookie settings (Non-essential features enabled)';
+    btn.setAttribute('aria-pressed', 'true');
+  }
+}
+
+function disableNonEssential() {
+  console.log('Cookie consent: declined — non-essential scripts disabled');
+
+  // Remove GA script and initializer
+  const gaScript = document.getElementById('ga-gtag');
+  if (gaScript && gaScript.parentNode) gaScript.parentNode.removeChild(gaScript);
+  const gaInit = document.getElementById('ga-init');
+  if (gaInit && gaInit.parentNode) gaInit.parentNode.removeChild(gaInit);
+
+  // Replace gtag with a no-op so further calls don't error or send data
+  try {
+    window.gtag = function(){ /* noop */ };
+    try { delete window.dataLayer; } catch(e) { /* ignore */ }
+  } catch (e) { /* ignore */ }
+
+  window.nonEssentialEnabled = false;
+
+  const btn = document.getElementById('open-cookie-manager');
+  if (btn) {
+    btn.title = 'Cookie settings (Non-essential features disabled)';
+    btn.setAttribute('aria-pressed', 'false');
+  }
+}
+
+function showManageButton() {
+  let btn = document.getElementById('open-cookie-manager');
+  if (!btn) return;
+  btn.style.display = 'inline-block';
+}
+function hideManageButton() {
+  let btn = document.getElementById('open-cookie-manager');
+  if (!btn) return;
+  btn.style.display = 'none';
+}
+
+// Update visible badge with current cookie state
+function updateCookieBadge(state) {
+  const badge = document.getElementById('cookie-status-badge');
+  if (!badge) return;
+  try {
+    if (state === 'accepted') {
+      badge.textContent = 'Cookies: On';
+      badge.classList.add('enabled');
+      badge.classList.remove('disabled');
+      badge.setAttribute('aria-label', 'Cookies accepted. Click to manage.');
+    } else if (state === 'declined') {
+      badge.textContent = 'Cookies: Off';
+      badge.classList.add('disabled');
+      badge.classList.remove('enabled');
+      badge.setAttribute('aria-label', 'Cookies declined. Click to manage.');
+    } else {
+      badge.textContent = 'Cookies: ?';
+      badge.classList.remove('enabled', 'disabled');
+      badge.setAttribute('aria-label', 'Cookie status unknown. Click to manage.');
+    }
+  } catch (e) { /* ignore */ }
+} 
+
+// Attach banner handlers
+// Attach cookie banner event handlers in an idempotent way
+function attachCookieHandlers() {
+  const accept = document.getElementById('cookie-accept');
+  const decline = document.getElementById('cookie-decline');
+  const openBtn = document.getElementById('open-cookie-manager');
+  const badge = document.getElementById('cookie-status-badge');
+
+  if (accept && !accept.dataset.cookieListener) {
+    accept.addEventListener('click', () => applyCookieChoice('accepted'));
+    accept.dataset.cookieListener = '1';
+  }
+  if (decline && !decline.dataset.cookieListener) {
+    decline.addEventListener('click', () => applyCookieChoice('declined'));
+    decline.dataset.cookieListener = '1';
+  }
+  if (openBtn && !openBtn.dataset.cookieListener) {
+    openBtn.addEventListener('click', () => showCookieBanner());
+    openBtn.dataset.cookieListener = '1';
+  }
+  // make badge clickable and keyboard accessible to open the banner
+  if (badge && !badge.dataset.cookieListener) {
+    badge.addEventListener('click', () => showCookieBanner());
+    badge.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showCookieBanner(); } });
+    badge.dataset.cookieListener = '1';
+    badge.tabIndex = 0;
+  }
+} 
+
+function initCookieBanner() {
+  // Ensure handlers are attached so buttons are always functional
+  attachCookieHandlers();
+
+  const stored = getCookie('cookie_consent') || (localStorage.getItem && localStorage.getItem('cookie_consent'));
+  if (stored && (stored === 'accepted' || stored === 'declined')) {
+    // apply previous choice
+    if (stored === 'accepted') enableNonEssential(); else disableNonEssential();
+    // show small manage button for users to change choice
+    showManageButton();
+    try { updateCookieBadge(stored); } catch (e) { /* ignore */ }
+    return;
+  }
+  // show banner
+  showCookieBanner();
 }
 
 // Initialize receipts UI on load
 document.addEventListener('DOMContentLoaded', () => {
   try { migrateStoredPhones(); } catch(e) { /* ignore */ }
     renderReceipts();
+    // initialize cookie banner after the main UI is ready
+    try { initCookieBanner(); } catch (e) { console.error('Cookie banner init error', e); }
 });
 
 // Back to top button behavior

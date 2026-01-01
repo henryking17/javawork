@@ -2,11 +2,31 @@
 const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(express.json());
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
+// Optional SMTP transporter (configure via env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
+let smtpTransporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+  try {
+    smtpTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true' || false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+  } catch (e) {
+    console.error('Failed to create SMTP transporter:', e);
+    smtpTransporter = null;
+  }
+}
 
 // Initialize payment
 app.post("/initialize-payment", async (req, res) => {
@@ -62,6 +82,28 @@ app.post('/newsletter-subscribe', async (req, res) => {
     list.push({ email, message: (message || '').toString(), created: new Date().toISOString() });
     await fs.writeFile(filePath, JSON.stringify(list, null, 2), 'utf8');
 
+    // Attempt to send confirmation email if SMTP configured
+    const fromAddress = process.env.NOREPLY_FROM || process.env.SMTP_USER || 'Cympet and Co <no-reply@cympet.local>';
+    const subject = 'Welcome to Cympet and Co Newsletter!';
+    const defaultMessage = `Hi there!\n\nThanks for subscribing to Cympet and Co. You're now signed up to receive exclusive offers, product launches and updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`;
+    const textMessage = (message && message.toString().trim()) ? message.toString().trim() : defaultMessage;
+    const htmlMessage = `<p>${textMessage.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`;
+
+    if (smtpTransporter) {
+      try {
+        await smtpTransporter.sendMail({
+          from: fromAddress,
+          to: email,
+          subject,
+          text: textMessage,
+          html: htmlMessage
+        });
+      } catch (mailErr) {
+        console.error('SMTP send error:', mailErr);
+        // non-fatal: still respond success but log the error
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Newsletter save error:', error);
@@ -74,9 +116,8 @@ const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
-const axios = require("axios");
-
 async function createRecipient() {
+  const axios = require('axios');
   const response = await axios.post(
     "https://api.paystack.co/transferrecipient",
     {

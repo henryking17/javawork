@@ -204,7 +204,7 @@ nav ul li a {
 }
 
 nav ul li a:hover {
-    color: gold;
+    color: rgb(134, 123, 58);
 }
 
 /* animated underline for nav links */
@@ -541,23 +541,35 @@ nav ul.show {
 
 .product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
+    /* slightly smaller tiles by reducing the min width */
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
 }
 
 .product-card {
     background: #fff;
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.08);
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
     cursor: pointer;
     scroll-margin-top: 160px; /* account for fixed header when jumping to anchors */
+    /* make tiles slightly more compact */
+    padding-bottom: 0.5rem;
 }
 
 .product-card.highlight {
-    box-shadow: 0 12px 32px rgba(220, 20, 60, 0.18), 0 0 0 4px rgba(220,20,60,0.06);
-    transform: translateY(-6px);
+    /* glowing highlight state (used when JS adds .highlight) */
+    box-shadow: 0 12px 36px rgba(151,39,119,0.28), 0 0 18px rgba(151,39,119,0.14);
+    transform: translateY(-6px) scale(1.02);
+    filter: saturate(1.03);
+}
+
+/* keyboard focus and hover should show the glow as well */
+.product-card:focus-visible,
+.product-card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 10px 30px rgba(151,39,119,0.22), 0 0 14px rgba(151,39,119,0.12);
 }
 
 .product-card:hover {
@@ -566,12 +578,12 @@ nav ul.show {
 }
 
 .product-image {
-    height: 150px; /* reduced height to make product tiles smaller while keeping image quality */
+    height: 130px; /* slightly reduced height so tiles feel smaller */
     background: #f0f0f0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2.6rem;
     cursor: zoom-in;
 }
 
@@ -588,11 +600,11 @@ nav ul.show {
 
 /* Slightly smaller product tiles on narrow screens */
 @media (max-width: 900px) {
-    .product-image { height: 130px; }
+    .product-image { height: 120px; }
 }
 
 @media (max-width: 480px) {
-    .product-image { height: 110px; }
+    .product-image { height: 100px; }
     .product-grid { gap: 1rem; }
 }
 
@@ -610,8 +622,13 @@ nav ul.show {
 }
 
 .product-card h3 {
-    padding: 1rem;
-    font-size: 1.5rem;
+    padding: 0.6rem 0.8rem;
+    font-size: 1.15rem;
+    line-height: 1.2;
+}
+
+.product-card p {
+    padding: 0 0.8rem 0.6rem;
 }
 
 .product-card p {
@@ -952,6 +969,70 @@ nav ul.show {
     max-width: 100%;
     height: auto;
 }
+
+/* Cookie consent banner */
+.cookie-consent {
+  position: fixed;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  pointer-events: none; /* allow inner element to control pointer events */
+  transition: opacity 220ms ease, transform 220ms ease;
+  opacity: 0;
+  transform: translateY(12px);
+}
+.cookie-consent[aria-hidden="false"] { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.cookie-consent-inner {
+  max-width: 980px;
+  width: 100%;
+  background: rgba(11,18,32,0.96);
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cookie-consent-text { flex: 1; font-size: 0.95rem; color: #e6eef9; }
+.cookie-consent-text a { color: #cfe8ff; text-decoration: underline; }
+.cookie-consent-actions { display:flex; gap:8px; align-items:center; }
+.cookie-consent .btn { margin: 0; }
+@media (max-width:640px) {
+  .cookie-consent-inner { flex-direction: column; align-items: stretch; text-align: left; }
+  .cookie-consent-actions { justify-content: flex-end; }
+}
+
+/* Small persistent cookie settings button */
+.cookie-manage-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #cfe8ff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.cookie-manage-btn:hover { background: rgba(255,255,255,0.02); }
+.cookie-manage-btn:focus { outline: 2px solid rgba(207,232,255,0.28); }
+
+/* Small cookie status badge */
+.cookie-status-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #e6eef9;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: background 180ms ease, transform 120ms ease;
+}
+.cookie-status-badge.enabled { background: #2ecc71; color: #072a12; border-color: rgba(0,0,0,0.08); }
+.cookie-status-badge.disabled { background: rgba(255,255,255,0.04); color: #cfe8ff; }
+.cookie-status-badge:focus { outline: 2px solid rgba(207,232,255,0.28); transform: translateY(-1px); }
 
 /* Rich product specifications view */
 .specs-view {

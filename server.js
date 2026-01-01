@@ -42,6 +42,33 @@ app.get("/verify-payment/:reference", async (req, res) => {
 });
 
 
+// Newsletter subscription endpoint (persists subscriptions to a JSON file)
+const fs = require('fs').promises;
+app.post('/newsletter-subscribe', async (req, res) => {
+  try {
+    const { email, message } = req.body || {};
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
+
+    const filePath = 'newsletter_subscribers.json';
+    let list = [];
+    try {
+      const raw = await fs.readFile(filePath, 'utf8');
+      list = JSON.parse(raw || '[]');
+    } catch (e) {
+      // file not found or invalid JSON -> start with empty list
+      list = [];
+    }
+
+    list.push({ email, message: (message || '').toString(), created: new Date().toISOString() });
+    await fs.writeFile(filePath, JSON.stringify(list, null, 2), 'utf8');
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Newsletter save error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

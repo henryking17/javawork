@@ -348,6 +348,20 @@
               <input type="email" id="newsletter-email" placeholder="Enter your email address" required>
               <button class="btn primary" type="submit">Subscribe</button>
             </form>
+
+            <!-- Newsletter preview shown before sending confirmation email (editable) -->
+            <div id="newsletter-preview" class="newsletter-preview" style="display:none;">
+              <div class="newsletter-preview-content">
+                <h4>Preview: Confirmation Email</h4>
+                <textarea id="newsletter-preview-textarea" rows="6" style="width:100%; padding:10px; border-radius:6px; border:1px solid #ddd; margin-top:8px; font-size:0.95rem;"></textarea>
+                <div style="margin-top:6px; color:#666; font-size:0.92rem;">Edit the message as you like before sending.</div>
+                <div style="margin-top:12px; display:flex; gap:8px;">
+                  <button id="newsletter-send-btn" class="btn primary" type="button">Confirm & Send</button>
+                  <button id="newsletter-cancel-btn" class="btn ghost" type="button">Cancel</button>
+                </div>
+              </div>
+            </div>
+
             <p class="newsletter-note">Exclusive offers, product launches and more — delivered weekly.</p>
           </div>
 

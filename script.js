@@ -2440,57 +2440,226 @@ function notifyError(msg) {
   }
 }
 
-// Newsletter subscription handler (supports Web3Forms or localStorage fallback)
+// Newsletter subscription handler (shows preview first)
 function subscribeNewsletter() {
   const emailEl = document.getElementById('newsletter-email');
   if (!emailEl) return;
   const email = (emailEl.value || '').trim();
   if (!email) { notifyError('Please enter a valid email address.'); return; }
 
-  // Determine access key (first check global, then hidden input)
+  // Build preview message using same text we send
+  const previewText = `Hi ${email.split('@')[0] || ''}!,\n\nThanks for subscribing to Cympet and Co. Congratulations — you're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`;
+
+  showNewsletterPreview(email, previewText);
+}
+
+function showNewsletterPreview(email, messageText) {
+  const preview = document.getElementById('newsletter-preview');
+  const textarea = document.getElementById('newsletter-preview-textarea');
+  if (!preview || !textarea) return;
+  textarea.value = messageText;
+  preview.style.display = 'block';
+  // move focus to textarea so the user can edit immediately
+  try { textarea.focus(); textarea.setSelectionRange(textarea.value.length, textarea.value.length); } catch (e) {}
+
+  // wire confirm & cancel once
+  const sendBtn = document.getElementById('newsletter-send-btn');
+  const cancelBtn = document.getElementById('newsletter-cancel-btn');
+
+  function cleanupHandlers() {
+    try { sendBtn.removeEventListener('click', onSend); } catch (e) {}
+    try { cancelBtn.removeEventListener('click', onCancel); } catch (e) {}
+  }
+
+  function onSend() {
+    cleanupHandlers();
+    const edited = textarea.value.trim();
+    if (!edited) { notifyError('Message cannot be empty.'); return; }
+    sendNewsletterSubscription(email, edited);
+  }
+  function onCancel() {
+    cleanupHandlers();
+    hideNewsletterPreview();
+  }
+
+  sendBtn.addEventListener('click', onSend);
+  cancelBtn.addEventListener('click', onCancel);
+}
+
+// Send to Web3Forms and save to server-side storage
+function sendNewsletterSubscription(email, messageOverride) {
+  const emailEl = document.getElementById('newsletter-email');
   const accessKey = (window.NEWSLETTER_ACCESS_KEY && String(window.NEWSLETTER_ACCESS_KEY).trim()) ||
                     (document.getElementById('newsletter-access-key') && document.getElementById('newsletter-access-key').value.trim()) || '';
 
-  if (accessKey) {
-    // Send to Web3Forms
-    const payload = {
-      access_key: accessKey,
-      subject: 'Newsletter Signup',
-      email: email,
-      data: { email }
-    };
-    fetch('https://api.web3forms.com/submit', {
+  const defaultMessage = `Hi there!\n\nThanks for subscribing to Cympet and Co. Congratulations — you're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`;
+  const messageText = (typeof messageOverride === 'string' && messageOverride.trim()) ? messageOverride.trim() : defaultMessage;
+  // convert plain text to simple HTML (escape first)
+  const htmlBody = `<p>${escapeHtml(messageText).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`;
+
+  const payload = {
+    access_key: accessKey,
+    subject: 'Welcome to Cympet and Co Newsletter!',
+    email: email,
+    message: messageText,
+    html: htmlBody,
+    auto_response: true,
+    from_name: 'Cympet and Co',
+    data: { email }
+  };
+
+  // If accessKey present, submit to Web3Forms; otherwise skip directly to server save
+  const doWeb3 = Boolean(accessKey);
+
+  const finishSuccess = () => {
+    // Save to backend storage (include message)
+    fetch('/newsletter-subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, message: messageText })
+    }).then(r => r.json()).then(j => {
+      // success recorded on server; show success toast
+      notifySuccess("Thanks — you're subscribed! A confirmation email has been sent to your address.");
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    }).catch(err => {
+      console.error('Server save error:', err);
+      // Still consider subscription successful if Web3Forms send succeeded
+      notifySuccess("Thanks — you're subscribed! (saved locally)");
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    });
+  };
+
+  if (doWeb3) {
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(json => {
+    }).then(res => res.json()).then(json => {
       if (json && json.success) {
-        notifySuccess("Thanks — you're subscribed!");
-        emailEl.value = '';
+        finishSuccess();
       } else {
         console.error('Web3Forms error:', json);
         notifyError(json && json.message ? json.message : 'Subscription failed — please try again later.');
       }
-    })
-    .catch(err => {
+    }).catch(err => {
       console.error('Subscription error:', err);
       notifyError('Subscription failed — please try again later.');
     });
-
   } else {
-    // Fallback: store locally so you can export or review later
-    try {
-      const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]');
-      list.push({ email: email, created: new Date().toISOString() });
-      localStorage.setItem('newsletter_subscribers', JSON.stringify(list));
+    // Fallback: still save to backend if available, otherwise localStorage
+    fetch('/newsletter-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, message: messageText })
+    }).then(r => r.json()).then(j => {
+      notifySuccess("Thanks — you're subscribed! (saved)");
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    }).catch(err => {
+      console.error('Server save error:', err);
+      try {
+        const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]');
+        list.push({ email: email, message: messageText, created: new Date().toISOString() });
+        localStorage.setItem('newsletter_subscribers', JSON.stringify(list));
+        notifySuccess("Thanks — you're subscribed! (saved locally)");
+        hideNewsletterPreview();
+        if (emailEl) emailEl.value = '';
+      } catch (e) {
+        console.error('Local subscription error:', e);
+        notifyError('Subscription failed — please try again.');
+      }
+    });
+  }
+}
+
+function hideNewsletterPreview() {
+  const preview = document.getElementById('newsletter-preview');
+  if (!preview) return;
+  preview.style.display = 'none';
+}
+
+// Send to Web3Forms and save to server-side storage
+function sendNewsletterSubscription(email) {
+  const emailEl = document.getElementById('newsletter-email');
+  const accessKey = (window.NEWSLETTER_ACCESS_KEY && String(window.NEWSLETTER_ACCESS_KEY).trim()) ||
+                    (document.getElementById('newsletter-access-key') && document.getElementById('newsletter-access-key').value.trim()) || '';
+
+  const payload = {
+    access_key: accessKey,
+    subject: 'Welcome to Cympet and Co Newsletter!',
+    email: email,
+    message: `Hi there!\n\nThanks for subscribing to Cympet and Co. Congratulations — you're now signed up to receive exclusive offers, new arrivals and product updates. Use code WELCOME10 on your next purchase.\n\nBest regards,\nCympet and Co Team`,
+    html: `<p>Hi there,</p><p><strong>Thanks for subscribing to Cympet and Co.</strong> Congratulations — you're now signed up to receive exclusive offers, product launches and updates. Use code <strong>WELCOME10</strong> on your next purchase.</p><p>Best regards,<br/>Cympet and Co Team</p>`,
+    auto_response: true,
+    from_name: 'Cympet and Co',
+    data: { email }
+  };
+
+  // If accessKey present, submit to Web3Forms; otherwise skip directly to server save
+  const doWeb3 = Boolean(accessKey);
+
+  const finishSuccess = () => {
+    // Save to backend storage
+    fetch('/newsletter-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(r => r.json()).then(j => {
+      // success recorded on server; show success toast
+      notifySuccess("Thanks — you're subscribed! A confirmation email has been sent to your address.");
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    }).catch(err => {
+      console.error('Server save error:', err);
+      // Still consider subscription successful if Web3Forms send succeeded
       notifySuccess("Thanks — you're subscribed! (saved locally)");
-      emailEl.value = '';
-    } catch (e) {
-      console.error('Local subscription error:', e);
-      notifyError('Subscription failed — please try again.');
-    }
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    });
+  };
+
+  if (doWeb3) {
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(res => res.json()).then(json => {
+      if (json && json.success) {
+        finishSuccess();
+      } else {
+        console.error('Web3Forms error:', json);
+        notifyError(json && json.message ? json.message : 'Subscription failed — please try again later.');
+      }
+    }).catch(err => {
+      console.error('Subscription error:', err);
+      notifyError('Subscription failed — please try again later.');
+    });
+  } else {
+    // Fallback: still save to backend if available, otherwise localStorage
+    fetch('/newsletter-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(r => r.json()).then(j => {
+      notifySuccess("Thanks — you're subscribed! (saved)");
+      hideNewsletterPreview();
+      if (emailEl) emailEl.value = '';
+    }).catch(err => {
+      console.error('Server save error:', err);
+      try {
+        const list = JSON.parse(localStorage.getItem('newsletter_subscribers') || '[]');
+        list.push({ email: email, created: new Date().toISOString() });
+        localStorage.setItem('newsletter_subscribers', JSON.stringify(list));
+        notifySuccess("Thanks — you're subscribed! (saved locally)");
+        hideNewsletterPreview();
+        if (emailEl) emailEl.value = '';
+      } catch (e) {
+        console.error('Local subscription error:', e);
+        notifyError('Subscription failed — please try again.');
+      }
+    });
   }
 }
 

@@ -869,6 +869,13 @@ nav ul.show {
 .newsletter-form .btn { padding:10px 14px; }
 .newsletter-note { color: #9fb3cf; font-size:0.9rem; margin-top:6px; }
 
+/* Newsletter preview styling */
+.newsletter-preview { margin-top:10px; background:#fff; padding:12px; border-radius:10px; box-shadow:0 8px 24px rgba(3,7,18,0.08); color:#0b1220; }
+.newsletter-preview h4 { margin:0; font-size:1.05rem; }
+.newsletter-preview .newsletter-preview-content { max-width:720px; }
+.newsletter-preview textarea { width:100%; min-height:120px; padding:10px; border-radius:6px; border:1px solid #e6e6e6; font-size:0.95rem; resize:vertical; }
+@media (max-width:640px) { .newsletter-preview { padding:10px; } }
+
 .apps-social { display:flex; gap:24px; align-items:center; }
 .apps h4, .social h4 { margin:0 0 8px 0; color:#fff; }
 .app-links { display:flex; gap:8px; }

@@ -40,11 +40,11 @@
 <body>
     <header>
         <div class="container">
-            <button class="country-btn" aria-label="Change country"> <img src="https://flagcdn.com/w20/ng.png" alt="Nigeria"> NG </button>
+           
             
             <img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo">
-            <nav>
-                <ul>
+            <nav aria-label="Main navigation">
+                <ul id="main-nav" aria-hidden="true">
                     <!-- Mobile search: appears at top of hamburger menu on small screens -->
                     <li class="mobile-search" aria-hidden="true">
                       <form id="mobile-search-form" onsubmit="return false;" class="mobile-search-form">
@@ -59,7 +59,6 @@
                     <li><a href="#contact"><b>Contact</b></a></li>
                     <li><a href="#receipts"><b>Receipts</b></a></li>
                 </ul>
-                <button class="hamburger" id="hamburger">☰</button>
             </nav>
             <div class="search-bar">
                 <input type="text" id="search-input" placeholder="Search products...">
@@ -68,6 +67,7 @@
             <div class="cart-icon" onclick="showCart()">
                 🛒 <span id="cart-count">0</span>
             </div>
+            <button class="hamburger" id="hamburger" aria-controls="main-nav" aria-expanded="false" aria-label="Open menu">☰</button>
         </div>
     </header>
 
@@ -435,8 +435,19 @@
                 <!-- Variants (not used for now) -->
             </div>
 
-            <div id="modal-specs" class="specs-list" style="display:none; text-align:left; margin-top:16px;">
-                <!-- Specs populated here -->
+            <div id="modal-specs" class="specs-view" style="display:none; text-align:left; margin-top:16px;">
+                <!-- Rich specs view populated by JavaScript: image + description + specifications -->
+                <!-- Structure (populated by script):
+                     <div class="specs-grid">
+                       <div class="specs-image"><img src="" alt=""></div>
+                       <div class="specs-content">
+                         <h3 id="spec-title"></h3>
+                         <p class="muted" id="spec-summary"></p>
+                         <dl class="specs-dl"></dl>
+                         <div class="spec-actions"><button id="spec-back-btn">Back</button> <button id="spec-buy-btn">Buy Now</button></div>
+                       </div>
+                     </div>
+                -->
             </div>
         </div>
     </div>
@@ -603,6 +614,9 @@
       // Example: window.NEWSLETTER_ACCESS_KEY = 'your-web3forms-access-key';
       // You can get an access key from https://web3forms.com/ (or leave blank to use localStorage fallback).
     </script>
+
+    <!-- Back to top button (keyboard accessible) -->
+    <button id="back-to-top" aria-label="Back to top" title="Back to top">↑</button>
 
     <script src="script.js"></script>
     

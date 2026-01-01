@@ -605,8 +605,24 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 block: 'start'
             });
         }
-        // Close mobile menu after clicking
-        if (typeof navUl !== 'undefined' && navUl) navUl.classList.remove('show');
+        // Close mobile menu after clicking (cleanup drawer/backdrop and return focus)
+        if (typeof navUl !== 'undefined' && navUl) {
+            navUl.classList.remove('show');
+            try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
+            const closeBtn = navUl.querySelector('.nav-close');
+            if (closeBtn) closeBtn.remove();
+        }
+        const navBackdrop = document.getElementById('nav-backdrop');
+        if (navBackdrop) {
+            navBackdrop.classList.remove('show');
+            setTimeout(() => { if (navBackdrop.parentNode) navBackdrop.parentNode.removeChild(navBackdrop); }, 260);
+        }
+        if (typeof hamburger !== 'undefined' && hamburger) {
+            hamburger.classList.remove('active');
+            hamburger.setAttribute('aria-expanded', 'false');
+            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); hamburger.focus(); } catch (e) {}
+        }
+        document.body.classList.remove('nav-open');
     });
 });
 
@@ -617,9 +633,16 @@ const navUl = document.querySelector('nav ul');
 if (hamburger && navUl) {
     hamburger.addEventListener('click', () => {
         const isOpen = navUl.classList.toggle('show');
-        // toggle active on hamburger for animation
+        // set aria-hidden on nav and toggle active on hamburger for animation
+        try { navUl.setAttribute('aria-hidden', String(!isOpen)); } catch (e) {}
         hamburger.classList.toggle('active', isOpen);
         hamburger.setAttribute('aria-expanded', String(!!isOpen));
+
+        // change hamburger icon to X when open, revert when closed
+        try {
+            hamburger.innerHTML = isOpen ? '&times;' : '☰';
+            hamburger.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+        } catch (e) {}
 
         // Show/hide mobile search but do NOT automatically focus it (prevents keyboard on mobile)
         const mobileSearchLi = document.querySelector('.mobile-search');
@@ -637,8 +660,10 @@ if (hamburger && navUl) {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && navUl.classList.contains('show')) {
             navUl.classList.remove('show');
+            try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
             hamburger.classList.remove('active');
             hamburger.setAttribute('aria-expanded', 'false');
+            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
         }
     });
 }
@@ -653,8 +678,12 @@ if (mobileSearchBtn && mobileSearchInput) {
         const mainBtn = document.getElementById('search-btn');
         if (mainInput) mainInput.value = q;
         if (mainBtn) mainBtn.click();
-        // Close menu after searching on mobile
-        if (navUl) navUl.classList.remove('show');
+        // Close menu after searching on mobile (cleanup)
+        if (navUl) {
+            navUl.classList.remove('show');
+            try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
+            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); hamburger.classList.remove('active'); hamburger.setAttribute('aria-expanded', 'false'); } catch (e) {}
+        }
     });
     mobileSearchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -2201,22 +2230,59 @@ function showSpecs() {
     const specsContainer = document.getElementById('modal-specs');
     specsContainer.innerHTML = '';
 
+    const imageSrc = document.getElementById('modal-image') ? document.getElementById('modal-image').src : '';
+    const details = getProductDetails(title) || {};
     const specs = productSpecs[title];
 
     if (!specs) {
         specsContainer.innerHTML = '<p>No detailed specifications available for this product at the moment.</p>';
     } else {
-        let html = '<div class="specs-list"><dl>';
+        // build spec rows
+        let rows = '';
         for (const key in specs) {
-            html += `<dt style="font-weight:700; margin-top:6px;">${key}</dt><dd style="margin-left:0; margin-bottom:6px;">${specs[key]}</dd>`;
+            rows += `<div class="spec-row"><dt>${key}</dt><dd>${specs[key]}</dd></div>`;
         }
-        html += '</dl></div>';
+
+        const html = `
+          <div class="specs-grid">
+            <div class="specs-image"><img src="${imageSrc}" alt="${escapeHtml(title)}"></div>
+            <div class="specs-content">
+              <h3>${escapeHtml(title)}</h3>
+              <p class="muted">${escapeHtml(details.description || 'Technical specifications and key features of this product.')}</p>
+              <div class="specs-dl">${rows}</div>
+              <div class="spec-actions">
+                <button class="btn ghost" id="spec-back-btn" type="button">Back</button>
+                <button class="btn primary" id="spec-buy-btn" type="button">Buy Now</button>
+              </div>
+            </div>
+          </div>
+        `;
         specsContainer.innerHTML = html;
     }
 
     document.getElementById('product-details').style.display = 'none';
     document.getElementById('modal-variants').style.display = 'none';
     specsContainer.style.display = 'block';
+
+    // Small delay to ensure elements are attached before wiring events
+    setTimeout(() => {
+        const backBtn = document.getElementById('spec-back-btn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                document.getElementById('product-details').style.display = 'block';
+                specsContainer.style.display = 'none';
+                // Return focus to modal title for accessibility
+                try { document.getElementById('modal-title').focus(); } catch (e) {}
+            });
+            try { backBtn.focus(); } catch (e) {}
+        }
+        const buyBtn = document.getElementById('spec-buy-btn');
+        if (buyBtn) {
+            buyBtn.addEventListener('click', () => {
+                if (title) addToCart(title);
+            });
+        }
+    }, 40);
 }
 
 // -------------------- Receipts UI --------------------
@@ -2433,5 +2499,35 @@ document.addEventListener('DOMContentLoaded', () => {
   try { migrateStoredPhones(); } catch(e) { /* ignore */ }
     renderReceipts();
 });
+
+// Back to top button behavior
+(function() {
+  function onReady() {
+    const btn = document.getElementById('back-to-top');
+    if (!btn) return;
+    const SHOW_AFTER = 300;
+    function update() {
+      const sc = window.pageYOffset || document.documentElement.scrollTop || 0;
+      const nearBottom = (document.documentElement.scrollHeight - window.innerHeight - sc) < 120;
+      btn.classList.toggle('show', sc > SHOW_AFTER || nearBottom);
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try {
+        if (prefersReduce) window.scrollTo(0,0);
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        window.scrollTo(0,0);
+      }
+      btn.blur();
+    });
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') onReady();
+  else document.addEventListener('DOMContentLoaded', onReady);
+})();
 
 // -------------------- End of script ---------------->

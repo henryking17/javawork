@@ -30,9 +30,9 @@ body {
 /* Header */
 /* Increased vertical padding and min-height so the logo fits in the header */
 header {
-    background: linear-gradient(135deg, red 0%, #702f2f 100%);
-    color: white;
-    opacity: 0.9;
+    background: linear-gradient(135deg, rgb(248, 246, 246) 0%, #d3cdcd 100%);
+    color: black;
+    opacity: 0.97;
     padding: 0.5rem 0; /* increased padding so the logo has breathing room */
     position: fixed;
     width: 100%;
@@ -198,7 +198,7 @@ nav ul li {
 }
 
 nav ul li a {
-    color: white;
+    color: black;
     text-decoration: none;
     transition: color 0.3s;
 }
@@ -283,7 +283,7 @@ nav ul.show {
 .search-bar button {
     padding: 0.5rem 1rem;
     background: #16060a;
-    color: white;
+    color: gold;
     border: none;
     border-radius: 0 4px 4px 0;
     cursor: pointer;
@@ -340,6 +340,55 @@ nav ul.show {
 
 .hamburger:hover {
     color: #ff6b6b;
+}
+
+/* Help dropdown in navigation */
+.help-menu { position: relative; }
+.help-toggle {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+}
+.help-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  color: #222;
+  min-width: 200px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  padding: 8px 0;
+  display: none;
+  z-index: 1200;
+}
+.help-dropdown a {
+  display: block;
+  padding: 10px 14px;
+  color: #222;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.help-dropdown a:hover { background: #f5f5f5; }
+.help-menu.open .help-dropdown { display: block; }
+
+/* Help section styles */
+.help { padding: 60px 0; background: #fffbea; }
+.help h2, .help h3 { color: #333; }
+.help .lead { color: #555; margin-bottom: 1rem; }
+.help-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top:1rem; }
+.help-card { background: #fff; border-radius:10px; padding:16px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+.help-card h3 { margin-top:0; }
+.help-card p { color:#555; margin-bottom:12px; }
+.faq-list details { background:#fff; border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+.faq-list summary { cursor:pointer; font-weight:600; }
+
+@media (max-width: 900px) {
+  .help-dropdown { left: 8px; right: 8px; top: calc(100% + 6px); }
+  .help-cards { grid-template-columns: 1fr; }
 }
 
 #cart-count.animate {
@@ -403,6 +452,27 @@ nav ul.show {
 .btn:active {
     transform: translateY(0) scale(0.98);
     box-shadow: 0 1px 2px rgba(220, 20, 60, 0.3);
+}
+
+.btn.gold, .gold {
+    background: linear-gradient(180deg, #FFD54A 0%, #F0C419 100%);
+    color: #222;
+    border-radius: 6px;
+    padding: 0.55rem 1.1rem;
+    box-shadow: 0 6px 18px rgba(255, 193, 7, 0.18), 0 2px 6px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+}
+
+.btn.gold:hover, .gold:hover {
+    transform: translateY(-2px) scale(1.03);
+    filter: brightness(0.98);
+    box-shadow: 0 10px 28px rgba(255, 193, 7, 0.22);
+}
+
+.btn.gold:active, .gold:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.18);
 }
 
 .btn::before {
@@ -1207,6 +1277,9 @@ nav ul.show {
 
     /* mobile-only search item inside hamburger menu (hidden on desktop) */
     .mobile-search { display: none; }
+
+    /* When menu is open, show mobile search at the top of the menu */
+    nav ul.show .mobile-search { display: flex; padding: 0.75rem 1rem; justify-content: center; align-items: center; width: 100%; }
     
     .hamburger {
         display: block;
@@ -1218,10 +1291,19 @@ nav ul.show {
         top: 100%;
         left: 0;
         width: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff; /* white background for hamburger menu */
         display: none;
         gap: 0.5rem;
         padding: 0.5rem 0;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        max-height: calc(100vh - 110px); /* allow menu to scroll on small screens */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.08) transparent;
+        padding-bottom: 12px;
     }
     
     nav ul.show {
@@ -1231,20 +1313,29 @@ nav ul.show {
     nav ul li {
         margin: 0;
         text-align: center;
-        padding: 1rem 0;
+        padding: 0;
     }
-
-    /* mobile search controls when menu is open */
-    .mobile-search {
-        display: flex;
-        padding: 0.75rem 1rem;
-        justify-content: center;
-        align-items: center;
+    
+    /* Mobile menu link styles: white background, black text for readability */
+    nav ul li a, nav ul li button.help-toggle {
+        display: block;
+        padding: 14px 18px;
+        color: #111; /* black text for hamburger items */
+        text-decoration: none;
+        background: transparent;
         width: 100%;
+        text-align: left;
     }
-    .mobile-search .mobile-search-form {
-        display:flex;
-        gap:8px;
+    
+    nav ul li a:hover, nav ul li button.help-toggle:hover {
+        background: #f6f6f6;
+    }
+    
+    nav ul li + li { border-top: 1px solid rgba(0,0,0,0.04); }
+
+    /* WebKit scrollbar styles for mobile helpfulness */
+    nav ul::-webkit-scrollbar { width: 8px; height: 8px; }
+    nav ul::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 8px; }
         align-items:center;
         width:100%;
     }
@@ -1301,6 +1392,23 @@ nav ul.show {
         min-width: 150px;
     }
 }
+
+/* Compact product grid for mobile phones (Jumia-like) */
+@media (max-width: 600px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .product-card {
+    padding: 0.6rem;
+    border-radius: 8px;
+  }
+  .product-card h3 { font-size: 1.05rem; padding: 0.6rem; }
+  .product-card p { padding: 0 0.6rem 0.8rem; font-size: 0.95rem; }
+  .product-image { height: 120px; }
+  .product-card .btn { margin: 0.6rem; }
+}
+
 /* Toast notifications — modern success / error toasts */
 
 /* Container sits in top-right */

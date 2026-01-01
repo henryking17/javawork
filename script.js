@@ -322,17 +322,17 @@ document.addEventListener('DOMContentLoaded', () => {
       // Clear any search-related hash so stale links aren't left behind
       try { if ('replaceState' in history) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
 
-      // If we previously saved a scroll position before searching, restore it
-      if (isSearching) {
-        if (typeof searchPriorScroll === 'number') {
-          try { window.scrollTo({ top: searchPriorScroll, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, searchPriorScroll); }
-        } else {
-          // fallback: scroll to products top
-          const productsRoot = document.getElementById('products');
-          if (productsRoot) {
-            try { productsRoot.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { window.scrollTo(0, productsRoot.getBoundingClientRect().top + window.pageYOffset - 20); }
-          }
-        }
+      // Remove any active category selection and clear category results so Featured reappears
+      try {
+        document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+        const catArea = document.getElementById('category-products');
+        if (catArea) catArea.innerHTML = '';
+      } catch (e) {}
+
+      // Scroll to Featured Products header to keep the user focused on featured items
+      const featured = document.getElementById('featured-products');
+      if (featured) {
+        try { featured.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { window.scrollTo(0, featured.getBoundingClientRect().top + window.pageYOffset - 20); }
       }
 
       // reset search tracking
@@ -621,10 +621,15 @@ if (hamburger && navUl) {
         hamburger.classList.toggle('active', isOpen);
         hamburger.setAttribute('aria-expanded', String(!!isOpen));
 
-        // Focus the mobile search input when menu opens
+        // Show/hide mobile search but do NOT automatically focus it (prevents keyboard on mobile)
+        const mobileSearchLi = document.querySelector('.mobile-search');
         const mobileInput = document.getElementById('mobile-search-input');
-        if (isOpen && mobileInput) {
-            setTimeout(() => mobileInput.focus(), 120);
+        if (mobileSearchLi) mobileSearchLi.setAttribute('aria-hidden', String(!isOpen));
+        // Do not call focus() here to avoid opening the on-screen keyboard on mobile devices.
+        // When the user explicitly taps the search field, it will receive focus as expected.
+        if (!isOpen && mobileInput) {
+            // blur any lingering focus when closing the menu
+            try { mobileInput.blur(); } catch (e) {}
         }
     });
 
@@ -655,6 +660,29 @@ if (mobileSearchBtn && mobileSearchInput) {
         if (e.key === 'Enter') {
             e.preventDefault();
             mobileSearchBtn.click();
+        }
+    });
+
+    // When the mobile search input changes, mirror it to the main input and auto-refresh when emptied
+    mobileSearchInput.addEventListener('input', () => {
+        const q = mobileSearchInput.value.trim();
+        const mainInput = document.getElementById('search-input');
+        const mainBtn = document.getElementById('search-btn');
+        if (mainInput) mainInput.value = q;
+        if (!q && mainBtn) {
+            // trigger the shared search handler to show all products and scroll to featured
+            setTimeout(() => mainBtn.click(), 0);
+        }
+    });
+
+    // Allow Escape to clear mobile input and refresh
+    mobileSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            mobileSearchInput.value = '';
+            const mainInput = document.getElementById('search-input');
+            const mainBtn = document.getElementById('search-btn');
+            if (mainInput) mainInput.value = '';
+            if (mainBtn) mainBtn.click();
         }
     });
 }

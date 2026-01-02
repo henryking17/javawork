@@ -774,16 +774,9 @@ function fallbackCopy(text, btn) {
 }
 
 // Attach copy buttons once DOM is ready
+// (Account-copy buttons removed — keep this placeholder for future copy handlers)
 document.addEventListener('DOMContentLoaded', () => {
-    const copyDeliveryBtn = document.getElementById('copy-delivery-bank-btn');
-    if (copyDeliveryBtn) {
-        copyDeliveryBtn.addEventListener('click', () => copyToClipboard(`${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`, copyDeliveryBtn));
-    }
-    const copyCheckoutBtn = document.getElementById('copy-checkout-bank-btn');
-    if (copyCheckoutBtn) {
-        // For Paystack checkout we only copy the raw account number (digits only) so it can be pasted exactly into the bank transfer form
-        copyCheckoutBtn.addEventListener('click', () => copyToClipboard(String(BANK_ACCOUNT_NUMBER).replace(/\D/g, ''), copyCheckoutBtn));
-    }
+    // No account copy handlers attached as per request
 });
 
 // Build "Shop by Category" area (keeps Featured Products unchanged)

@@ -1723,7 +1723,7 @@ function showDeliveryModal(mode = 'delivery') {
       } else {
         if (h2) h2.textContent = 'Delivery Details';
         if (p) p.textContent = 'Please provide your delivery information. Receipts will be generated upon successful delivery.';
-        if (modeInput) modeInput.value = 'delivery';
+        if (modeInput) modeInput.value = 'Home-delivery';
         // show editable delivery address and city
         if (deliveryAddrGroup) deliveryAddrGroup.style.display = '';
         if (deliveryCityGroup) deliveryCityGroup.style.display = '';
@@ -2010,6 +2010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     { display_name: "Items", variable_name: "items", value: itemsSummary },
                     { display_name: "Order Summary (total)", variable_name: "order_summary", value: formatPrice(paymentTotal) },
                     { display_name: "Customer Name", variable_name: "customer_name", value: name },
+                    { display_name: "Customer Phone", variable_name: "customer_phone", value: phone },
                     { display_name: "Delivery Type", variable_name: "delivery_type", value: (mode === 'pickup' ? 'Pickup' : 'Home Delivery') },
                     { display_name: "Delivery Address", variable_name: "delivery_address", value: address }
                 ]

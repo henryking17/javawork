@@ -2010,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     { display_name: "Items", variable_name: "items", value: itemsSummary },
                     { display_name: "Order Summary (total)", variable_name: "order_summary", value: formatPrice(paymentTotal) },
                     { display_name: "Customer Name", variable_name: "customer_name", value: name },
-                    { display_name: "Delivery Type", variable_name: "delivery_type", value: mode },
+                    { display_name: "Delivery Type", variable_name: "delivery_type", value: (mode === 'pickup' ? 'Pickup' : 'Home Delivery') },
                     { display_name: "Delivery Address", variable_name: "delivery_address", value: address }
                 ]
             },
@@ -2028,7 +2028,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     orderId: 'PS_' + response.reference,
                     payment_reference: response.reference,
                     payment_method: 'Paystack',
-                    delivery_type: mode,
+                    delivery_type: (mode === 'pickup' ? 'pickup' : 'delivery'),
                     address,
                     city,
                     notes
@@ -2074,6 +2074,7 @@ async function sendOrderEmail(orderData, type = 'order') {
         if (orderData.email) lines.push(`Email: ${orderData.email}`);
         if (orderData.address) lines.push(`Address: ${orderData.address}`);
         if (orderData.city) lines.push(`City/State: ${orderData.city}`);
+        if (orderData.delivery_type) lines.push(`Delivery Type: ${orderData.delivery_type === 'pickup' ? 'Pickup' : 'Home Delivery'}`);
         lines.push('');
         lines.push('Items:');
         if (Array.isArray(orderData.cart) && orderData.cart.length > 0) {

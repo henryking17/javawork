@@ -717,12 +717,12 @@ if (mobileSearchBtn && mobileSearchInput) {
 }
 
 // Paystack initialization (replace with your own public key if needed)
-const paystackPublicKey = 'pk_live_b6107994278a9ccd508d5e7a08c12586e64b1ee1';
+const paystackPublicKey = 'pk_live_9b945969aae3229dd2ad5620b7e26df2da999b53';
 
-// Bank transfer details (used for copy-to-clipboard helper in Paystack bank transfer flows)
-const BANK_ACCOUNT_NUMBER = '0123456789';
-const BANK_NAME = 'Zenith Bank';
-const BANK_ACCOUNT_NAME = 'Cympet Shop';
+// Main bank details (used for bank transfer instructions and copying)
+const BANK_ACCOUNT_NUMBER = '2008885373';
+const BANK_NAME = 'First Bank of Nigeria';
+const BANK_ACCOUNT_NAME = 'CYMPET ENTERPRISES CO. NIGERIA';
 
 // Show bank instructions panel for a given context ('checkout' | 'delivery')
 function showBankInstructions(context) {
@@ -781,7 +781,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const copyCheckoutBtn = document.getElementById('copy-checkout-bank-btn');
     if (copyCheckoutBtn) {
-        copyCheckoutBtn.addEventListener('click', () => copyToClipboard(`${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`, copyCheckoutBtn));
+        // For Paystack checkout we only copy the raw account number (digits only) so it can be pasted exactly into the bank transfer form
+        copyCheckoutBtn.addEventListener('click', () => copyToClipboard(String(BANK_ACCOUNT_NUMBER).replace(/\D/g, ''), copyCheckoutBtn));
     }
 });
 

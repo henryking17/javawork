@@ -118,13 +118,14 @@ app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 async function createRecipient() {
   const axios = require('axios');
+  // Note: Use Paystack numeric bank_code (e.g., First Bank of Nigeria = "011")
   const response = await axios.post(
     "https://api.paystack.co/transferrecipient",
     {
       type: "nuban",
-      name: "cympet and co nigeria enterprises",
-      account_number: "8170779071",
-      bank_code: "FIDELITY BANK" // GTBank example
+      name: "CYMPET ENTERPRISES CO.NIGERIA",
+      account_number: "2008885373",
+      bank_code: "011" // First Bank of Nigeria (Paystack bank code)
     },
     { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` } }
   );

@@ -228,6 +228,12 @@
   <div class="container">
     <h2>Your Receipts</h2>
     <p>View receipts for completed purchases (Paystack payments and Cash on Delivery). Click "View" to open the receipt and print/download.</p>
+
+    <div class="receipts-controls" style="max-width:1000px; margin: 0 auto 12px; display:flex; gap:8px; align-items:center;">
+      <input id="receipts-search" type="search" placeholder="Search receipts by date, reference, time or year" aria-label="Search receipts" />
+      <button id="receipts-search-clear" class="btn ghost" type="button" aria-label="Clear search" title="Clear search">Clear</button>
+    </div>
+
     <div id="receipts-list" class="receipts-list card" style="max-width:1000px; margin: 0 auto; padding: 16px;">
       <!-- Receipts are populated by script.js -->
       <p style="color:#666; text-align:center;">Loading receipts...</p>

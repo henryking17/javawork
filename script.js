@@ -73,15 +73,41 @@ function renderReceipts() {
     ...cod.map(o => ({ ...o, _type: 'cod' }))
   ];
 
-  if (all.length === 0) {
-    receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts found yet. Complete a purchase to see receipts here.</p>';
+  // Search/filter support: read query from receipts-search input
+  const searchEl = document.getElementById('receipts-search');
+  const q = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
+
+  function receiptMatches(order, q) {
+    if (!q) return true;
+    const parts = [
+      order.orderId || '',
+      order.payment_reference || '',
+      order.name || '',
+      order.phone || '',
+      order.total || '',
+      formatDateTime12(order.timestamp || ''),
+      (order.timestamp ? new Date(order.timestamp).getFullYear().toString() : ''),
+      (order.timestamp ? new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '')
+    ].join(' ').toLowerCase();
+    return q.split(/\s+/).every(term => parts.includes(term));
+  }
+
+  const filtered = all.filter(o => receiptMatches(o, q));
+
+  if (filtered.length === 0) {
+    if (q) {
+      receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts match your search.</p>';
+    } else {
+      receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">No receipts found yet. Complete a purchase to see receipts here.</p>';
+    }
     return;
   }
 
   // sort by timestamp desc
-  all.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const list = filtered;
+  list.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  all.forEach(order => {
+  list.forEach(order => {
     const card = document.createElement('div');
     card.className = 'receipt-card';
     card.style.padding = '12px';
@@ -272,6 +298,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderReceipts();
+
+  // On load, restore any pending delivery payment from previous session
+  try {
+    const pending = JSON.parse(localStorage.getItem('pending_delivery_payment') || 'null');
+    // Only restore pending payment state if it matches the current cart snapshot
+    const cartSnapshot = JSON.stringify(cart || {});
+    if (pending && pending._cartSnapshot === cartSnapshot) {
+      deliveryPaymentConfirmed = true;
+      deliveryPaymentInfo = pending;
+    }
+  } catch (e) { /* ignore */ }
+
+  const receiptsClear = document.getElementById('receipts-search-clear');
+  if (receiptsSearch) {
+    receiptsSearch.addEventListener('input', () => { renderReceipts(); });
+    receiptsSearch.addEventListener('keydown', (e) => { if (e.key === 'Escape') { receiptsSearch.value = ''; renderReceipts(); receiptsSearch.blur(); } });
+  }
+  if (receiptsClear) {
+    receiptsClear.addEventListener('click', () => { if (receiptsSearch) { receiptsSearch.value = ''; receiptsSearch.focus(); renderReceipts(); } });
+  }
 });
 
 
@@ -1304,6 +1350,9 @@ function addToCart(productKey) {
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
 
+    // If the cart changed, clear any preserved pending delivery payment that doesn't match
+    clearPendingDeliveryPaymentIfCartChanged();
+
     const cartCountEl = document.getElementById('cart-count');
     if (cartCountEl) {
         cartCountEl.classList.add('animate');
@@ -1317,6 +1366,23 @@ function updateCartCount() {
     for (const p in cart) totalItems += cart[p];
     const el = document.getElementById('cart-count');
     if (el) el.textContent = totalItems;
+}
+
+// Clear preserved pending delivery payment if the cart has changed since the payment
+function clearPendingDeliveryPaymentIfCartChanged() {
+    try {
+        const pending = JSON.parse(localStorage.getItem('pending_delivery_payment') || 'null');
+        const cartSnapshot = JSON.stringify(cart || {});
+        if (pending && pending._cartSnapshot !== cartSnapshot) {
+            localStorage.removeItem('pending_delivery_payment');
+            deliveryPaymentConfirmed = false;
+            deliveryPaymentInfo = null;
+            const dsb = document.getElementById('delivery-submit-btn');
+            if (dsb) { dsb.disabled = true; dsb.classList.remove('glow'); dsb.textContent = 'Confirm Order'; }
+            const payBtn = document.getElementById('delivery-pay-btn');
+            if (payBtn) payBtn.disabled = false;
+        }
+    } catch (e) { /* ignore */ }
 }
 
 function showCart() {
@@ -1389,6 +1455,8 @@ function changeQuantity(productKey, delta) {
     if (cart[key] <= 0) delete cart[key];
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
+    // If cart changed, clear any preserved pending delivery payment that doesn't match
+    clearPendingDeliveryPaymentIfCartChanged();
 
     const newTotal = Object.values(cart).reduce((s, v) => s + v, 0);
     if (newTotal > prevTotal) {
@@ -1406,6 +1474,8 @@ function removeFromCart(productKey) {
     delete cart[key];
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
+    // If cart changed, clear any preserved pending delivery payment that doesn't match
+    clearPendingDeliveryPaymentIfCartChanged();
     showCart();
 }
 
@@ -1729,12 +1799,48 @@ function showDeliveryModal(mode = 'delivery') {
       }
     }
 
-    // Reset transient payment state and disable Confirm until payment completes
-    deliveryPaymentConfirmed = false;
-    deliveryPaymentInfo = null;
-    if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; }
+    // If there's an existing confirmed payment that matches the current cart and mode,
+    // preserve it so the Confirm button remains available even if the modal was closed.
     const deliveryPayBtn = document.getElementById('delivery-pay-btn');
-    if (deliveryPayBtn) { deliveryPayBtn.disabled = false; }
+    const cartSnapshot = JSON.stringify(cart || {});
+    const expectedMode = (mode === 'pickup' ? 'pickup' : 'delivery');
+
+    if (deliveryPaymentConfirmed && deliveryPaymentInfo && deliveryPaymentInfo._cartSnapshot === cartSnapshot && deliveryPaymentInfo.delivery_type === expectedMode) {
+        // Restore confirmed state: enable Confirm and keep glow to prompt the user
+        if (deliverySubmitBtn) { deliverySubmitBtn.disabled = false; deliverySubmitBtn.textContent = 'Confirm Order (Paid)'; deliverySubmitBtn.classList.add('glow'); }
+        if (deliveryPayBtn) { deliveryPayBtn.disabled = true; }
+
+        // Show a status message so the user knows a payment is already recorded
+        try {
+            showDeliveryStatus(`Payment recorded (ref ${deliveryPaymentInfo.payment_reference}). Click Confirm Order to complete your ${expectedMode === 'pickup' ? 'pickup' : 'delivery'}.`, 'success');
+        } catch (e) { /* ignore */ }
+
+        // Populate form fields with the saved info only if they are currently empty to avoid overwriting edits
+        try {
+            if (deliveryPaymentInfo.name) {
+                const el = document.getElementById('delivery-name'); if (el && !el.value) el.value = deliveryPaymentInfo.name;
+            }
+            if (deliveryPaymentInfo.phone) {
+                const el = document.getElementById('delivery-phone'); if (el && !el.value) el.value = deliveryPaymentInfo.phone;
+            }
+            if (deliveryPaymentInfo.email) {
+                const el = document.getElementById('delivery-email'); if (el && !el.value) el.value = deliveryPaymentInfo.email;
+            }
+            if (deliveryPaymentInfo.address) {
+                const el = document.getElementById('delivery-address'); if (el && !el.value) el.value = deliveryPaymentInfo.address;
+            }
+            if (deliveryPaymentInfo.city) {
+                const el = document.getElementById('delivery-city'); if (el && !el.value) el.value = deliveryPaymentInfo.city;
+            }
+        } catch (e) { /* ignore form population errors */ }
+
+    } else {
+        // No preserved payment - reset transient state and disable Confirm until payment completes
+        deliveryPaymentConfirmed = false;
+        deliveryPaymentInfo = null;
+        if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; deliverySubmitBtn.classList.remove('glow'); }
+        if (deliveryPayBtn) { deliveryPayBtn.disabled = false; }
+    }
 
     // Update the Pay Now button label for this mode
     updateDeliveryPayBtnLabel(mode);
@@ -1881,9 +1987,10 @@ if (deliveryForm) {
             showDeliveryStatus(`Order confirmed! Your order ID is ${pd.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
 
             // Disable Confirm and clear payment snapshot
-            if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; }
+            if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; deliverySubmitBtn.classList.remove('glow'); }
             deliveryPaymentConfirmed = false;
             deliveryPaymentInfo = null;
+            try { localStorage.removeItem('pending_delivery_payment'); } catch (e) { /* ignore */ }
 
             // Close modal shortly after
             setTimeout(() => { closeDeliveryModal(); }, 2000);
@@ -2016,6 +2123,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     email,
                     phone,
                     cart: items,
+                    // snapshot of cart object at time of payment (used to validate preserved payment)
+                    _cartSnapshot: JSON.stringify(checkoutSnapshot || {}),
                     total: formatPrice(paymentTotal),
                     timestamp: new Date().toISOString(),
                     orderId: 'PS_' + response.reference,
@@ -2030,11 +2139,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Mark payment confirmed and store the snapshot for finalization on Confirm
                 deliveryPaymentConfirmed = true;
                 deliveryPaymentInfo = paymentOrder;
+                try { localStorage.setItem('pending_delivery_payment', JSON.stringify(paymentOrder)); } catch (e) { /* ignore storage errors */ }
 
-                // Inform the user and enable Confirm button
+                // Inform the user and enable Confirm button (add glow to indicate next action)
                 const arrangementText = (mode === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
                 showDeliveryStatus(`Payment successful (ref ${response.reference}). Click Confirm Order to complete your ${arrangementText}.`, 'success');
-                if (deliverySubmitBtn) { deliverySubmitBtn.disabled = false; deliverySubmitBtn.textContent = 'Confirm Order (Paid)'; }
+                if (deliverySubmitBtn) { deliverySubmitBtn.disabled = false; deliverySubmitBtn.textContent = 'Confirm Order (Paid)'; deliverySubmitBtn.classList.add('glow'); }
 
                 // Restore pay button (hide bank instructions and re-enable)
                 hideBankInstructions('delivery');

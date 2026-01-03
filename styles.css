@@ -1311,6 +1311,32 @@ nav ul.show {
     transform: none;
 }
 
+/* Glow effect to draw attention when payment is completed and user should click Confirm */
+#delivery-submit-btn.glow {
+    animation: glowPulse 1.8s infinite ease-in-out;
+    box-shadow: 0 0 0 3px rgba(39,174,96,0.12), 0 6px 18px rgba(39,174,96,0.12);
+    transform: translateY(-1px);
+}
+
+@keyframes glowPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(39,174,96,0.35);
+    }
+    50% {
+        box-shadow: 0 0 28px 6px rgba(39,174,96,0.12);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(39,174,96,0.0);
+    }
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    #delivery-submit-btn.glow {
+        animation: none;
+    }
+}
+
 #delivery-status {
     margin-top: 1rem;
     padding: 0.75rem;
@@ -1911,6 +1937,24 @@ nav ul.show {
   padding: 6px 10px;
   font-size: 0.95rem;
 }
+
+/* Small receipts search control */
+.receipts-controls {
+  max-width: 1000px;
+  margin: 0 auto 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.receipts-controls input[type="search"] {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #e6e6e6;
+  font-size: 0.95rem;
+}
+.receipts-controls input[type="search"]::placeholder { color: #999; }
+.receipts-controls .btn { padding: 8px 10px; font-size: 0.9rem; }
 
 /* checkout modal small tweaks */
 #checkout-modal .modal-content {

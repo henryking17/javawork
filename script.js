@@ -717,7 +717,7 @@ if (mobileSearchBtn && mobileSearchInput) {
 }
 
 // Paystack initialization (replace with your own public key if needed)
-const paystackPublicKey = 'pk_live_9b945969aae3229dd2ad5620b7e26df2da999b53';
+const paystackPublicKey = 'pk_test_593e1983178a6edb96ece69a294b43f33ac1c1f6';
 
 // Main bank details (used for bank transfer instructions and copying)
 const BANK_ACCOUNT_NUMBER = '2008885373';
@@ -725,14 +725,7 @@ const BANK_NAME = 'First Bank of Nigeria';
 const BANK_ACCOUNT_NAME = 'CYMPET ENTERPRISES CO. NIGERIA';
 
 // Show bank instructions panel for a given context ('checkout' | 'delivery')
-function showBankInstructions(context) {
-    const containerId = (context === 'delivery') ? 'delivery-bank-instructions' : 'checkout-bank-instructions';
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const accEl = container.querySelector('.bank-account-number');
-    if (accEl) accEl.textContent = `${BANK_ACCOUNT_NUMBER} (${BANK_NAME}) — ${BANK_ACCOUNT_NAME}`;
-    container.style.display = '';
-}
+
 
 function hideBankInstructions(context) {
     const containerId = (context === 'delivery') ? 'delivery-bank-instructions' : 'checkout-bank-instructions';
@@ -1284,9 +1277,8 @@ window.addEventListener('click', function(e) {
         const modalPriceEl = document.getElementById('modal-price');
         if (modalPriceEl) modalPriceEl.textContent = '';
     }
-    if (e.target === document.getElementById('delivery-modal')) {
-        closeDeliveryModal();
-    }
+    // Intentionally do NOT close delivery modal when clicking the overlay.
+    // Delivery modal should only be closed via the cancel (×) button.
 });
 
 // -------------------- Cart (fully functional) --------------------

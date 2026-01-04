@@ -826,7 +826,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const originalCards = Array.from(productsGrid.querySelectorAll('.product-card'));
     const categories = [
-      { name: 'Cooling & Fans', test: t => /\b(fan|ceiling fan|standing fan|wall fan|air conditioner|air)\b/i.test(t) },
+      { name: 'Cooling & Fans', test: t => /\b(?:fan|fans|ceiling fan|ceiling fans|standing fan|standing fans|wall fan|wall fans|air conditioner|air conditioners|air)\b/i.test(t) },
       { name: 'Kitchen Appliances', test: t => /\b(blender|freezer|refrigerator|fridge|microwave|oven)\b/i.test(t) },
       { name: 'Power & Generators', test: t => /\b(generator|generators|stabilizer|stabilizers|inverter)\b/i.test(t) },
       { name: 'Audio & Music', test: t => /\b(sound|microphone|microphones|speaker|sound system|soundbar)\b/i.test(t) },
@@ -904,6 +904,23 @@ document.addEventListener('DOMContentLoaded', function() {
         // bind add-to-cart
         addBtn.addEventListener('click', function(e) { e.stopPropagation(); const t = clone.querySelector('h3') ? clone.querySelector('h3').textContent.trim() : ''; if (t) addToCart(t); });
 
+        // ensure price element exists on clone
+        (function(){
+          const titleEl = clone.querySelector('h3');
+          const titleText = titleEl ? titleEl.textContent.trim() : '';
+          const details = titleText ? getProductDetails(titleText) : null;
+          let priceEl = clone.querySelector('.price');
+          if (!priceEl) {
+            priceEl = document.createElement('div');
+            priceEl.className = 'price';
+            priceEl.style.margin = '8px 12px';
+            if (details && details.priceStr) priceEl.textContent = details.priceStr;
+            clone.appendChild(priceEl);
+          } else {
+            if (details && details.priceStr) priceEl.textContent = details.priceStr;
+          }
+        })();
+
         // ensure image/lightbox works on clones
         const img = clone.querySelector('.product-image img');
         if (img) {
@@ -917,13 +934,14 @@ document.addEventListener('DOMContentLoaded', function() {
           if (e.target.classList.contains('add-now') || e.target.classList.contains('zoom-icon')) return;
           const title = this.querySelector('h3') ? this.querySelector('h3').textContent.trim() : '';
           const description = this.querySelector('p') ? this.querySelector('p').textContent.trim() : '';
-          const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
+          const details = getProductDetails(title) || {};
+          const imageSrc = details.image || (this.querySelector('img') ? this.querySelector('img').src : '');
 
           document.getElementById('modal-title').textContent = title;
           document.getElementById('modal-image').src = imageSrc;
-          document.getElementById('modal-description').textContent = description;
+          document.getElementById('modal-description').textContent = description || details.description || '';
           const modalPriceEl = document.getElementById('modal-price');
-          if (modalPriceEl) modalPriceEl.textContent = getProductDetails(title).priceStr || '';
+          if (modalPriceEl) modalPriceEl.textContent = details.priceStr || '';
 
           document.getElementById('product-details').style.display = 'block';
           document.getElementById('modal-specs').style.display = 'none';
@@ -1127,36 +1145,40 @@ function showFormStatus(message, type) {
 // Variants (used for detailed variant-level cart items if variant names are added)
 const productVariants = {
     'Refrigerator': [
-        { name: 'LG Double Door', description: 'Energy-efficient double door fridge', price: '₦250,000', emoji: '🧊', unit_price: 250000, stock: 4 },
-        { name: 'Samsung Side-by-Side', description: 'Large capacity side-by-side refrigerator', price: '₦450,000', emoji: '🧊', unit_price: 450000, stock: 2 },
-        { name: 'Whirlpool Single Door', description: 'Compact single door refrigerator', price: '₦150,000', emoji: '🧊', unit_price: 150000, stock: 10 }
+        { name: 'LG Double Door', description: 'Energy-efficient double door fridge', price: '₦250,000', emoji: '🧊', unit_price: 250000, stock: 4, image: 'https://th.bing.com/th/id/OIP.Bi2GutBeEfZDYgfRy3h6FwHaHa?w=201&h=200&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1', specs: { 'Capacity': '320L', 'Energy Rating': 'A', 'Defrost': 'Auto', 'Warranty': '1 year' } },
+        { name: 'Samsung Side-by-Side', description: 'Large capacity side-by-side refrigerator', price: '₦450,000', emoji: '🧊', unit_price: 450000, stock: 2, image: 'https://th.bing.com/th/id/OIP.Bi2GutBeEfZDYgfRy3h6FwHaHa?w=201&h=200&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1', specs: { 'Capacity': '500L', 'Energy Rating': 'A+', 'Defrost': 'Frost Free', 'Warranty': '2 years' } },
+        { name: 'Whirlpool Single Door', description: 'Compact single door refrigerator', price: '₦150,000', emoji: '🧊', unit_price: 150000, stock: 10, image: 'https://th.bing.com/th/id/OIP.Bi2GutBeEfZDYgfRy3h6FwHaHa?w=201&h=200&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1', specs: { 'Capacity': '150L', 'Energy Rating': 'B', 'Defrost': 'Manual', 'Warranty': '1 year' } }
     ],
     'Freezer': [
-        { name: 'Haier Chest Freezer', description: 'Large capacity chest freezer', price: '₦180,000', emoji: '❄️', unit_price: 180000, stock: 5 },
-        { name: 'LG Upright Freezer', description: 'Upright freezer with multiple compartments', price: '₦220,000', emoji: '❄️', unit_price: 220000, stock: 3 },
-        { name: 'Samsung Deep Freezer', description: 'Deep freezer for long-term storage', price: '₦200,000', emoji: '❄️', unit_price: 200000, stock: 4 }
+        { name: 'Haier Chest Freezer', description: 'Large capacity chest freezer', price: '₦180,000', emoji: '❄️', unit_price: 180000, stock: 5, specs: { 'Capacity': '300L', 'Defrost': 'Manual', 'Warranty': '1 year' } },
+        { name: 'LG Upright Freezer', description: 'Upright freezer with multiple compartments', price: '₦220,000', emoji: '❄️', unit_price: 220000, stock: 3, specs: { 'Capacity': '250L', 'Defrost': 'Auto', 'Warranty': '1 year' } },
+        { name: 'Samsung Deep Freezer', description: 'Deep freezer for long-term storage', price: '₦200,000', emoji: '❄️', unit_price: 200000, stock: 4, specs: { 'Capacity': '350L', 'Defrost': 'Manual', 'Warranty': '1 year' } }
     ],
     'Sound Systems': [
-        { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound', price: '₦150,000', emoji: '🎬', unit_price: 150000, stock: 6 }
+        { name: 'Sony 5.1 Home Theatre', description: 'Complete 5.1 surround sound', price: '₦150,000', emoji: '🎬', unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power': '200W', 'Connectivity': 'Bluetooth / Optical / AUX' } }
+    ],
+    'Air Conditioners': [
+        { name: 'LG Split AC 1.5HP', description: 'Energy-saving split AC unit', price: '₦100,000', emoji: '❄️', unit_price: 100000, stock: 8, specs: { 'Cooling Capacity': '1.5HP', 'Energy Rating': 'A', 'Warranty': '1 year' } },
+        { name: 'Samsung Window AC 1HP', description: 'Compact window AC unit', price: '₦80,000', emoji: '❄️', unit_price: 80000, stock: 5, specs: { 'Cooling Capacity': '1.0HP', 'Energy Rating': 'B', 'Warranty': '1 year' } }
     ]
     // Add more variants if needed
 };
 
 // Catalog entries used when user adds the displayed product card items directly to cart
 const productCatalog = {
-    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100', unit_price: 100, stock: 8 },
-    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12 },
-    'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18 },
-    'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
-    'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000, stock: 10 },
-    'Sound Systems': { name: 'Sound Systems', description: 'Home theatre systems & soundbars', priceStr: '₦150,000', unit_price: 150000, stock: 6 },
-    'Microphones': { name: 'Microphones', description: 'Wired and wireless microphones', priceStr: '₦45,000', unit_price: 45000, stock: 15 },
-    'Rechargeable Standing Fans': { name: 'Rechargeable Standing Fans', description: 'Battery powered standing fans', priceStr: '₦35,000', unit_price: 35000, stock: 9 },
-    'Refrigerator': { name: 'Refrigerator', description: 'Single & double-door refrigerators', priceStr: '₦250,000', unit_price: 250000, stock: 7 },
-    'Standing Fans': { name: 'Standing Fans', description: 'Adjustable-height standing fans', priceStr: '₦25,000', unit_price: 25000, stock: 20 },
-    'Stabilizers': { name: 'Stabilizers', description: 'Voltage stabilizers', priceStr: '₦30,000', unit_price: 30000, stock: 14 },
-    'Sumec Firman Generators': { name: 'Sumec Firman Generators', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5 },
-    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000, stock: 11 }
+    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100,000', unit_price: 100000, stock: 8, image: 'https://cdn.pixabay.com/photo/2016/11/30/12/10/air-conditioner-1878054_1280.jpg', specs: { 'Types': 'Split / Window', 'Energy Rating': 'A', 'Warranty': '1 year' } },
+    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12, image: 'https://cdn.pixabay.com/photo/2016/03/05/19/02/appliances-1238707_1280.jpg', specs: { 'Power': '800W', 'Capacity': '1.5L', 'Material': 'Stainless Steel' } },
+    'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18, image: 'https://cdn.pixabay.com/photo/2016/07/26/16/21/ceiling-fan-1546567_1280.jpg', specs: { 'Blade Size': '48-56 inches', 'Speed Settings': '3', 'Warranty': '1 year' } },
+    'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6, image: 'https://cdn.pixabay.com/photo/2016/12/11/22/56/generator-1903796_1280.jpg', specs: { 'Power Output': '5kVA - 10kVA', 'Fuel Type': 'Petrol/Diesel', 'Warranty': '1 year' } },
+    'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000, stock: 10, image: 'https://cdn.pixabay.com/photo/2017/08/07/07/22/freezer-2597706_1280.jpg', specs: { 'Capacity': '200-350L', 'Defrost': 'Manual/Auto', 'Warranty': '1 year' } },
+    'Sound Systems': { name: 'Sound Systems', description: 'Home theatre systems & soundbars', priceStr: '₦150,000', unit_price: 150000, stock: 6, image: 'https://cdn.pixabay.com/photo/2015/09/18/20/22/sound-951889_1280.jpg', specs: { 'Channels': '2.0 - 5.1', 'Connectivity': 'Bluetooth / Optical', 'Power': '100-500W' } },
+    'Microphones': { name: 'Microphones', description: 'Wired and wireless microphones', priceStr: '₦45,000', unit_price: 45000, stock: 15, image: 'https://cdn.pixabay.com/photo/2016/11/21/16/09/microphone-1845337_1280.jpg', specs: { 'Type': 'Wired / Wireless', 'Connectivity': 'XLR / 3.5mm / Wireless', 'Ideal For': 'Recording / Live' } },
+    'Rechargeable Standing Fans': { name: 'Rechargeable Standing Fans', description: 'Battery powered standing fans', priceStr: '₦35,000', unit_price: 35000, stock: 9, image: 'https://cdn.pixabay.com/photo/2016/09/23/20/26/fans-1693818_1280.jpg', specs: { 'Power Source': 'Rechargeable Battery', 'Run Time': '6-12 hrs', 'Speed Settings': '3' } },
+    'Refrigerator': { name: 'Refrigerator', description: 'Single & double-door refrigerators', priceStr: '₦250,000', unit_price: 250000, stock: 7, image: 'https://cdn.pixabay.com/photo/2014/12/21/23/28/refrigerator-576392_1280.png', specs: { 'Capacity': '150-500L', 'Defrost': 'Manual / Frost Free', 'Warranty': '1-2 years' } },
+    'Standing Fans': { name: 'Standing Fans', description: 'Adjustable-height standing fans', priceStr: '₦25,000', unit_price: 25000, stock: 20, image: 'https://cdn.pixabay.com/photo/2017/03/11/14/45/fan-2138386_1280.jpg', specs: { 'Height': 'Adjustable', 'Speed Settings': '3', 'Blade Size': '16-18 inches' } },
+    'Stabilizers': { name: 'Stabilizers', description: 'Voltage stabilizers', priceStr: '₦30,000', unit_price: 30000, stock: 14, image: 'https://cdn.pixabay.com/photo/2016/03/27/22/17/electrical-1281493_1280.jpg', specs: { 'Voltage Range': '110-280V', 'Capacity': '1kVA-5kVA' } },
+    'Sumec Firman Generators': { name: 'Sumec Firman Generators', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5, image: 'https://cdn.pixabay.com/photo/2018/08/27/09/59/generator-3637588_1280.jpg', specs: { 'Power Output': '2kVA - 10kVA', 'Fuel Type': 'Petrol', 'Warranty': '1 year' } },
+    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000, stock: 11, image: 'https://cdn.pixabay.com/photo/2017/03/11/14/45/fan-2138386_1280.jpg', specs: { 'Mount': 'Wall', 'Speed': '3', 'Blade Size': '12-16 inches' } }
 };
 
 // Helper to get product details by key (variant name or catalog title)
@@ -1171,7 +1193,9 @@ function getProductDetails(key) {
                     description: variant.description || '',
                     priceStr: variant.price || formatPrice(unit),
                     unit_price: unit,
-                    stock: (typeof variant.stock === 'number') ? variant.stock : null
+                    stock: (typeof variant.stock === 'number') ? variant.stock : null,
+                    image: variant.image || null,
+                    specs: variant.specs || null
                 };
             }
         }
@@ -1183,11 +1207,13 @@ function getProductDetails(key) {
             description: productCatalog[key].description || '',
             priceStr: productCatalog[key].priceStr || formatPrice(productCatalog[key].unit_price || 0),
             unit_price: productCatalog[key].unit_price || 0,
-            stock: (typeof productCatalog[key].stock === 'number') ? productCatalog[key].stock : null
+            stock: (typeof productCatalog[key].stock === 'number') ? productCatalog[key].stock : null,
+            image: productCatalog[key].image || null,
+            specs: productCatalog[key].specs || null
         };
     }
     // Fallback
-    return { name: key, description: '', priceStr: '₦0', unit_price: 0 };
+    return { name: key, description: '', priceStr: '₦0', unit_price: 0, image: null, specs: null };
 }
 
 // -------------------- Lightbox + Product-card UI --------------------
@@ -2328,9 +2354,9 @@ function showSpecs() {
     const specsContainer = document.getElementById('modal-specs');
     specsContainer.innerHTML = '';
 
-    const imageSrc = document.getElementById('modal-image') ? document.getElementById('modal-image').src : '';
     const details = getProductDetails(title) || {};
-    const specs = productSpecs[title];
+    const imageSrc = details.image || (document.getElementById('modal-image') ? document.getElementById('modal-image').src : '');
+    const specs = details.specs || productSpecs[title] || null;
 
     if (!specs) {
         specsContainer.innerHTML = '<p>No detailed specifications available for this product at the moment.</p>';

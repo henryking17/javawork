@@ -245,6 +245,18 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Render specs (object, array, or string) into HTML for the product modal
+function renderSpecsHtml(specs) {
+  if (!specs) return '';
+  if (typeof specs === 'string') return `<div class="specs-text">${escapeHtml(specs)}</div>`;
+  if (Array.isArray(specs)) return `<ul class="specs-list">${specs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`;
+  if (typeof specs === 'object') {
+    const rows = Object.entries(specs).map(([k,v]) => `<tr><th style="text-align:left; padding:6px; border-bottom:1px solid #eee; width:45%;">${escapeHtml(k)}</th><td style="text-align:left; padding:6px; border-bottom:1px solid #eee;">${escapeHtml(String(v))}</td></tr>`).join('');
+    return `<table class="specs-table" style="width:100%; border-collapse:collapse; margin-top:6px;">${rows}</table>`;
+  }
+  return '';
+}
+
 // Centralized date/time formatter that ensures 12-hour clock (e.g., "Dec 31, 2025, 2:05 PM")
 function formatDateTime12(input) {
   if (!input) return '';
@@ -920,13 +932,25 @@ document.addEventListener('DOMContentLoaded', function() {
           const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
 
           document.getElementById('modal-title').textContent = title;
-          document.getElementById('modal-image').src = imageSrc;
-          document.getElementById('modal-description').textContent = description;
+          const details = getProductDetails(title || '');
+          document.getElementById('modal-image').src = details.image || imageSrc;
+          document.getElementById('modal-description').textContent = description || details.description || '';
           const modalPriceEl = document.getElementById('modal-price');
-          if (modalPriceEl) modalPriceEl.textContent = getProductDetails(title).priceStr || '';
+          if (modalPriceEl) modalPriceEl.textContent = details.priceStr || '';
+
+          // Show specs if available
+          const specsEl = document.getElementById('modal-specs');
+          if (specsEl) {
+            if (details.specs) {
+              specsEl.innerHTML = renderSpecsHtml(details.specs);
+              specsEl.style.display = 'block';
+            } else {
+              specsEl.innerHTML = '';
+              specsEl.style.display = 'none';
+            }
+          }
 
           document.getElementById('product-details').style.display = 'block';
-          document.getElementById('modal-specs').style.display = 'none';
           document.getElementById('modal-variants').style.display = 'none';
           modal.style.display = 'block';
         });
@@ -1149,7 +1173,7 @@ const productVariants = {
 // Catalog entries used when user adds the displayed product card items directly to cart
 const productCatalog = {
     'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100', unit_price: 100, stock: 8 },
-    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12 },
+    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12, specs: { 'Capacity': '1.5 L', 'Power': '800W', 'Speeds': '3' }, image: 'https://www.bing.com/th/id/OIP.388XH-VhQEqoNURALL__qAHaMI?w=160&h=211&c=8&rs=1&qlt=90&o=6&cb=ucfimg1&pid=3.1&rm=2&ucfimg=1' },
     'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18 },
     'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
     'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000, stock: 10 },
@@ -1160,7 +1184,33 @@ const productCatalog = {
     'Standing Fans': { name: 'Standing Fans', description: 'Adjustable-height standing fans', priceStr: '₦25,000', unit_price: 25000, stock: 20 },
     'Stabilizers': { name: 'Stabilizers', description: 'Voltage stabilizers', priceStr: '₦30,000', unit_price: 30000, stock: 14 },
     'Sumec Firman Generators': { name: 'Sumec Firman Generators', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5 },
-    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000, stock: 11 }
+    'Wall Fans': { name: 'Wall Fans', description: 'Wall-mounted fans', priceStr: '₦30,000', unit_price: 30000, stock: 11 },
+    'Elepaq Constant Generator SV6800E2': { name: 'Elepaq Constant Generator SV6800E2', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
+    'Hisense Microwave 20 Litres': { name: 'Hisense Microwave 20 Litres', description: '20-litre microwave oven', priceStr: '₦45,000', unit_price: 45000, stock: 12, specs: { 'Capacity': '20 Litres', 'Power': '1000W', 'Features': 'Auto-rotation, 10 power levels, Child lock', 'Controls': 'Touch panel with timer', 'Warranty': '1 year' } },
+    'Elepaq Constant Generator SV2200': { name: 'Elepaq Constant Generator SV2200', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR in some models', 'Warranty': '1 year' } },
+   'Elepaq Constant Generator EC5800CX': { name: 'Elepaq Constant Generator EC5800CX', description: 'Reliable petrol/diesel generators', priceStr: '₦150,000', unit_price: 150000, stock: 10, specs: { 'Fuel Type': 'Diesel', 'Capacity Range': '1.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
+'Sumec Firman Generator SPG2900': { name: 'Sumec Firman Generator SPG2900', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '1.0kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
+'Sumec Firman Generator SPG3000 Manual': { name: 'Sumec Firman Generator SPG3000 Manual', description: 'Portable & industrial generators', priceStr: '₦400,000', unit_price: 400000, stock: 4, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR', 'Warranty': '1 year' } },
+'LG 43\' Smart Television': { name: "LG 43' Smart Television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/76/767676/1.jpg?7689' },
+'Elepaq Constant Generator SV22000E2': { name: "Elepaq Constant Generator SV22000E2", description: "Reliable petrol/diesel generators", priceStr: "₦2,500,000", unit_price: 2500000, stock: 1 },
+'Elepaq Constant Generator SV6800E2': { name: "Elepaq Constant Generator SV6800E2", description: "Reliable petrol/diesel generators", priceStr: "₦800,000", unit_price: 800000, stock: 2 },
+'Snowsea Freezer': { name: "Snowsea Freezer 150L", description: "150-litre chest freezer", priceStr: "₦120,000", unit_price: 120000, stock: 7, specs: { 'Capacity': '150 Litres', 'Type': 'Chest Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦140,000", unit_price: 140000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦200,000", unit_price: 200000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+'LG Sound System': { name: "LG Sound System", description: "Powerful home theatre sound system", priceStr: "₦150,000", unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power Output': '1000W', 'Connectivity': 'Bluetooth, HDMI, Optical' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987123/1.jpg?1234' },
+'Elepaq Constant Generator SV6800': { name: "Elepaq Constant Generator SV6800", description: "Reliable petrol/diesel generators", priceStr: "₦600,000", unit_price: 600000, stock: 3 },
+// Television models with specs and images
+  
+    "LG 32' LED television": { name: "LG 32' LED television", description: "32-inch LED TV — HDMI, USB, VGA; 720p HD", priceStr: '₦75,000', unit_price: 75000, stock: 6, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'No', 'HDMI Ports': '2', 'USB Ports': '1' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/64/0120121/1.jpg?0503' },
+    "LG 32' Smart Television": { name: "LG 32' Smart Television", description: "32-inch Smart LED TV — WiFi, Smart apps, HDMI", priceStr: '₦95,000', unit_price: 95000, stock: 4, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in', 'HDMI Ports': '2' }, image: 'https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/622f7911-883c-495a-bedd-bdb32f7e4817/TVs-32LR600BZUC-gallery-01_3000x3000?io=transform:fill,width:596' },
+    "LG 43' LED television": { name: "LG 43' LED television", description: "43-inch LED TV — Full HD" , priceStr: '₦150,000', unit_price: 150000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'No', 'HDMI Ports': '2' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/00/176674/1.jpg?7689' },
+    "LG 43' Smart television": { name: "LG 43' Smart television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/00/176674/1.jpg?7689' },
+    "Hisense 43' LED Television": { name: "Hisense 43' LED Television", description: "43-inch LED TV — Full HD" , priceStr: '₦140,000', unit_price: 140000, stock: 4, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'No' }, image: 'https://tse3.mm.bing.net/th/id/OIP.iUOU6OjGUzDPXRxr9H3V2wHaHa?rs=1&pid=ImgDetMain&o=7&rm=3' },
+    "Hisense 32' LED Television": { name: "Hisense 32' LED Television", description: "32-inch LED TV — HD" , priceStr: '₦70,000', unit_price: 70000, stock: 6, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'No' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/77/607997/1.jpg?2976' },
+    "Hisense 32' Smart Television": { name: "Hisense 32' Smart Television", description: "32-inch Smart TV — WiFi" , priceStr: '₦95,000', unit_price: 95000, stock: 4, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://www.laptopsdirect.co.uk/Images/32A4NTUK_1_Supersize.jpg?v=5' },
+    "Hisense 43' Smart Television": { name: "Hisense 43' Smart Television", description: "43-inch Smart TV — Smart apps" , priceStr: '₦165,000', unit_price: 165000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/41/1976814/1.jpg?5522' },
+    "Hisense 65' Smart Television": { name: "Hisense 65' Smart Television", description: "65-inch Smart TV — 4K" , priceStr: '₦550,000', unit_price: 550000, stock: 1, specs: { 'Screen Size': '65 inch', 'Resolution': '3840x2160 (4K)', 'Smart TV': 'Yes' }, image: 'https://s.alicdn.com/@sc04/kf/Hbb3047b72a444b5c8c27d2aa1883a148f.jpg_300x300.jpg' },
+    "Hisense 55' Smart Television": { name: "Hisense 55' Smart Television", description: "55-inch Smart TV — 4K" , priceStr: '₦380,000', unit_price: 380000, stock: 2, specs: { 'Screen Size': '55 inch', 'Resolution': '3840x2160 (4K)', 'Smart TV': 'Yes' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/05/951058/2.jpg?2473' }
 };
 
 // Helper to get product details by key (variant name or catalog title)
@@ -1175,7 +1225,9 @@ function getProductDetails(key) {
                     description: variant.description || '',
                     priceStr: variant.price || formatPrice(unit),
                     unit_price: unit,
-                    stock: (typeof variant.stock === 'number') ? variant.stock : null
+                    stock: (typeof variant.stock === 'number') ? variant.stock : null,
+                    specs: variant.specs || null,
+                    image: variant.image || ''
                 };
             }
         }
@@ -1187,11 +1239,13 @@ function getProductDetails(key) {
             description: productCatalog[key].description || '',
             priceStr: productCatalog[key].priceStr || formatPrice(productCatalog[key].unit_price || 0),
             unit_price: productCatalog[key].unit_price || 0,
-            stock: (typeof productCatalog[key].stock === 'number') ? productCatalog[key].stock : null
+            stock: (typeof productCatalog[key].stock === 'number') ? productCatalog[key].stock : null,
+            specs: productCatalog[key].specs || null,
+            image: productCatalog[key].image || ''
         };
     }
     // Fallback
-    return { name: key, description: '', priceStr: '₦0', unit_price: 0 };
+    return { name: key, description: '', priceStr: '₦0', unit_price: 0, specs: null, image: '' };
 }
 
 // -------------------- Lightbox + Product-card UI --------------------
@@ -1279,14 +1333,24 @@ document.querySelectorAll('.product-card').forEach(card => {
         const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
 
         document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-image').src = imageSrc;
-        document.getElementById('modal-description').textContent = description;
+        const details = getProductDetails(title || '');
+        document.getElementById('modal-image').src = details.image || imageSrc;
+        document.getElementById('modal-description').textContent = description || details.description || '';
         const modalPriceEl = document.getElementById('modal-price');
-        if (modalPriceEl) modalPriceEl.textContent = getProductDetails(title).priceStr || '';
+        if (modalPriceEl) modalPriceEl.textContent = details.priceStr || '';
 
-        // Reset view
+        // Reset view and show specs when available
         document.getElementById('product-details').style.display = 'block';
-        document.getElementById('modal-specs').style.display = 'none';
+        const specsEl = document.getElementById('modal-specs');
+        if (specsEl) {
+          if (details.specs) {
+            specsEl.innerHTML = renderSpecsHtml(details.specs);
+            specsEl.style.display = 'block';
+          } else {
+            specsEl.innerHTML = '';
+            specsEl.style.display = 'none';
+          }
+        }
         document.getElementById('modal-variants').style.display = 'none';
         modal.style.display = 'block';
         modal.setAttribute('aria-hidden', 'false');
@@ -2247,6 +2311,13 @@ const productSpecs = {
         'Accessories': 'Chopper, Grinder, Travel lid (model dependent)',
         'Warranty': '1 year'
     },
+    'Hisense Microwave 20 Litres': {
+        'Capacity': '20 Litres',
+        'Power': '1000W',
+        'Features': 'Auto-rotation, 10 power levels, Child lock',
+        'Controls': 'Touch panel with timer',
+        'Warranty': '1 year'
+    },
     'Ceiling Fans': {
         'Blade Sizes': '42", 48", 56"',
         'Motor Type': 'Copper winding, energy-efficient motors',
@@ -2259,6 +2330,14 @@ const productSpecs = {
         'Capacity Range': '2.5kVA - 25kVA',
         'Start Type': 'Recoil and Electric start options',
         'Fuel Tank': 'Large tank options for extended run-time',
+        'Warranty': '1 year'
+    },
+    'Elepaq Constant Generator SV2200': {
+        'Fuel Type': 'Petrol',
+        'Capacity Range': '2.2kVA',
+        'Start Type': 'Recoil start',
+        'coil':'100% Copper winding for durability',
+        'Features': 'Oil alert, Voltage regulator, AVR in some models',
         'Warranty': '1 year'
     },
     'Freezer': {
@@ -2334,20 +2413,38 @@ function showSpecs() {
 
     const imageSrc = document.getElementById('modal-image') ? document.getElementById('modal-image').src : '';
     const details = getProductDetails(title) || {};
-    const specs = productSpecs[title];
+
+    // Find specs: exact productSpecs entry, then details.specs (from catalog/variants),
+    // then try a fuzzy match against known productSpecs keys (category/general matches)
+    let specs = productSpecs[title] || details.specs || null;
+    if (!specs) {
+        const normalize = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s$/,'');
+        const nl = normalize(title);
+        for (const k of Object.keys(productSpecs)) {
+            if (!k) continue;
+            const nk = normalize(k);
+            if (!nk) continue;
+            if (nl.includes(nk) || nk.includes(nl)) { specs = productSpecs[k]; break; }
+        }
+    }
 
     if (!specs) {
-        specsContainer.innerHTML = '<p>No detailed specifications available for this product at the moment.</p>';
+        // As a final fallback, if details.specs is an object-like string, try to render it
+        if (details && details.specs) {
+            specsContainer.innerHTML = renderSpecsHtml(details.specs) || '<p>No detailed specifications available for this product at the moment.</p>';
+        } else {
+            specsContainer.innerHTML = '<p>No detailed specifications available for this product at the moment.</p>';
+        }
     } else {
         // build spec rows
         let rows = '';
         for (const key in specs) {
-            rows += `<div class="spec-row"><dt>${key}</dt><dd>${specs[key]}</dd></div>`;
+            rows += `<div class="spec-row"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(specs[key])}</dd></div>`;
         }
 
         const html = `
           <div class="specs-grid">
-            <div class="specs-image"><img src="${imageSrc}" alt="${escapeHtml(title)}"></div>
+            <div class="specs-image"><img src="${escapeHtml(details.image || imageSrc)}" alt="${escapeHtml(title)}"></div>
             <div class="specs-content">
               <h3>${escapeHtml(title)}</h3>
               <p class="muted">${escapeHtml(details.description || 'Technical specifications and key features of this product.')}</p>

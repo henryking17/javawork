@@ -827,15 +827,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const originalCards = Array.from(productsGrid.querySelectorAll('.product-card'));
     const categories = [
       { name: 'Cooling & Fans', test: t => /\b(?:fan|fans|ceiling fan|ceiling fans|standing fan|standing fans|wall fan|wall fans|air conditioner|air conditioners|air)\b/i.test(t) },
-      { name: 'Kitchen Appliances', test: t => /\b(blender|freezer|refrigerator|fridge|microwave|oven)\b/i.test(t) },
+      { name: 'Kitchen Appliances', test: t => /\b(blender|freezer|refrigerator|fridge|microwave|oven|kettle|toaster)\b/i.test(t) },
       { name: 'Power & Generators', test: t => /\b(generator|generators|stabilizer|stabilizers|inverter)\b/i.test(t) },
       { name: 'Audio & Music', test: t => /\b(sound|microphone|microphones|speaker|sound system|soundbar)\b/i.test(t) },
+      { name: 'Television and Video', test: t => /\b(tv|television|smart tv|smart television|led television|lcd television|oled television)\b/i.test(t) },
       { name: 'Computing & Accessories', test: t => /\b(laptop|computer|pc|keyboard|mouse|printer)\b/i.test(t) }
     ];
 
     const map = new Map();
     categories.forEach(c => map.set(c.name, []));
-    map.set('Other', []);
 
     originalCards.forEach(card => {
       const title = card.querySelector('h3') ? card.querySelector('h3').textContent.trim() : '';
@@ -843,7 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
       for (const c of categories) {
         if (c.test(title)) { map.get(c.name).push(card); matched = true; break; }
       }
-      if (!matched) map.get('Other').push(card);
+      if (!matched) map.get('Kitchen Appliances').push(card);
     });
 
     const barInner = document.getElementById('categories-inner');
@@ -864,11 +864,11 @@ document.addEventListener('DOMContentLoaded', function() {
       'Audio & Music': `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
       `,
+      'Television and Video': `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1"/><path d="M8 21h8v-2H8z"/></svg>
+      `,
       'Computing & Accessories': `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1"/><rect x="1" y="19" width="22" height="2"/></svg>
-      `,
-      'Other': `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.27 6.96L12 11.57 20.73 6.96"/></svg>
       `
     };
 

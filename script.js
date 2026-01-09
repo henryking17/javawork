@@ -945,9 +945,10 @@ const hamburger = document.getElementById('hamburger');
 const navUl = document.querySelector('nav ul');
 
 if (hamburger && navUl) {
-    hamburger.addEventListener('click', () => {
+    // Prevent event propagation on hamburger click to avoid closing immediately
+    hamburger.addEventListener('click', (e) => {
+        e.stopPropagation();
         const isOpen = navUl.classList.toggle('show');
-        // set aria-hidden on nav and toggle active on hamburger for animation
         try { navUl.setAttribute('aria-hidden', String(!isOpen)); } catch (e) {}
         hamburger.classList.toggle('active', isOpen);
         hamburger.setAttribute('aria-expanded', String(!!isOpen));
@@ -962,11 +963,38 @@ if (hamburger && navUl) {
         const mobileSearchLi = document.querySelector('.mobile-search');
         const mobileInput = document.getElementById('mobile-search-input');
         if (mobileSearchLi) mobileSearchLi.setAttribute('aria-hidden', String(!isOpen));
-        // Do not call focus() here to avoid opening the on-screen keyboard on mobile devices.
-        // When the user explicitly taps the search field, it will receive focus as expected.
         if (!isOpen && mobileInput) {
             // blur any lingering focus when closing the menu
             try { mobileInput.blur(); } catch (e) {}
+        }
+    }, { passive: false });
+
+    // Close menu when clicking on a nav link
+    const navLinks = navUl.querySelectorAll('li a, li button');
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            // Check if it's a hash link (navigation within same page)
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                navUl.classList.remove('show');
+                try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
+                hamburger.classList.remove('active');
+                hamburger.setAttribute('aria-expanded', 'false');
+                try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
+            }
+        });
+    });
+
+    // Close menu when clicking outside of it
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('nav') && !e.target.closest('.hamburger')) {
+            if (navUl.classList.contains('show')) {
+                navUl.classList.remove('show');
+                try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
+                hamburger.classList.remove('active');
+                hamburger.setAttribute('aria-expanded', 'false');
+                try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
+            }
         }
     });
 

@@ -234,12 +234,14 @@ nav ul.show li:nth-child(6) { animation-delay: 250ms; }
 
 /* Hamburger active state (morph into close icon) */
 .hamburger {
-    transition: transform 240ms ease, color 200ms ease;
+    transition: transform 240ms ease, color 200ms ease, background-color 200ms ease;
     font-weight: 700;
+    will-change: transform;
 }
 .hamburger.active {
     transform: rotate(90deg) scale(1.05);
     color: rgb(20, 19, 19);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Navigation backdrop and elevated look when open */
@@ -315,15 +317,30 @@ nav ul.show {
     display: none;
     background: none;
     border: none;
-    color: black; /* set to black */
+    color: black;
     font-size: 1.5rem;
     cursor: pointer;
-    padding: 0.5rem;
-    margin-left: 0.6rem; /* small gap from cart */
+    padding: 0.75rem;
+    margin-left: 0.6rem;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-width: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .hamburger:hover {
     color: #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.08);
+}
+
+.hamburger:active {
+    background-color: rgba(255, 107, 107, 0.15);
 }
 
 #cart-count.animate {
@@ -1360,28 +1377,41 @@ nav ul.show {
     nav ul.show .mobile-search { display: flex; padding: 0.75rem 1rem; justify-content: center; align-items: center; width: 100%; }
     
     .hamburger {
-        display: block;
+        display: flex;
     }
     
     nav ul {
         flex-direction: column;
-        position: absolute;
-        top: 100%;
+        position: fixed;
+        top: 60px;
         left: 0;
         width: 100%;
-        background: #ffffff; /* white background for hamburger menu */
+        height: calc(100vh - 60px);
+        background: #ffffff;
         display: none;
-        gap: 0.5rem;
-        padding: 0.5rem 0;
+        gap: 0;
+        padding: 0;
         border-top: 1px solid rgba(0,0,0,0.06);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-        max-height: calc(100vh - 110px); /* allow menu to scroll on small screens */
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
         scrollbar-width: thin;
-        scrollbar-color: rgba(0,0,0,0.08) transparent;
-        padding-bottom: 12px;
+        scrollbar-color: rgba(0,0,0,0.2) rgba(0,0,0,0.05);
+        padding-bottom: 20px;
+        z-index: 999;
+        animation: slideDown 200ms ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     nav ul.show {
@@ -1392,21 +1422,51 @@ nav ul.show {
         margin: 0;
         text-align: center;
         padding: 0;
+        border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+    
+    nav ul li:last-child {
+        border-bottom: none;
     }
     
     /* Mobile menu link styles: white background, black text for readability */
     nav ul li a, nav ul li button.help-toggle {
         display: block;
-        padding: 14px 18px;
-        color: #111; /* black text for hamburger items */
+        padding: 16px 20px;
+        color: #111;
         text-decoration: none;
         background: transparent;
         width: 100%;
         text-align: left;
+        font-size: 16px;
+        transition: background-color 150ms ease, color 150ms ease;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        border: none;
+        cursor: pointer;
     }
     
-    nav ul li a:hover, nav ul li button.help-toggle:hover {
-        background: #f6f6f6;
+    nav ul li a:hover, nav ul li button.help-toggle:hover,
+    nav ul li a:active, nav ul li button.help-toggle:active {
+        background: #f0f0f0;
+        color: #ff6b6b;
+    }
+    
+    /* Ensure search field is larger and easier to tap on mobile */
+    .mobile-search-input {
+        min-height: 44px;
+        font-size: 16px;
+        padding: 10px 12px;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    
+    .mobile-search-btn {
+        min-height: 44px;
+        min-width: 44px;
+        font-size: 16px;
+        -webkit-appearance: none;
+        appearance: none;
     }
     
     nav ul li + li { border-top: 1px solid rgba(0,0,0,0.04); }

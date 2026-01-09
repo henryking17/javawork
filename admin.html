@@ -239,6 +239,10 @@
   <script>
     // Load users from localStorage or use default
     let users = JSON.parse(localStorage.getItem('site_users') || '[]');
+    // Web3Forms configuration - set your access key and admin email here
+    // Get an access key from https://web3forms.com and replace the placeholder below.
+    const WEB3FORMS_ACCESS_KEY = '22b0c187-7f5e-48e5-91cf-d3481d9cd44f'; // e.g. 'xxxxxxxx-xxxx-xxxx'
+    const ADMIN_NOTIFICATION_EMAIL = 'henrycyprain2@gmail.com';
     
     // If empty, initialize with some default users for testing
     if (users.length === 0) {
@@ -498,6 +502,53 @@
         let notifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
         notifications.unshift(notification);
         localStorage.setItem('admin_notifications', JSON.stringify(notifications));
+
+        // Send email to admin via Web3Forms (non-blocking)
+        try {
+          // Only attempt to send if the developer replaced the placeholder access key
+          if (WEB3FORMS_ACCESS_KEY && WEB3FORMS_ACCESS_KEY !== '22b0c187-7f5e-48e5-91cf-d3481d9cd44f') {
+            const payload = {
+              access_key: WEB3FORMS_ACCESS_KEY,
+              to: ADMIN_NOTIFICATION_EMAIL,
+              
+              subject: `New account created: ${name}`,
+              name: name,
+              email: email,
+              message: `A new account was created.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nTime: ${new Date().toISOString()}`
+            };
+
+            fetch('https://api.web3forms.com/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            })
+            .then(async (res) => {
+              const body = await res.json().catch(() => ({}));
+              if (res.ok && (body.success === true || body.success === 'true' || body.status === 'success')) {
+                console.info('Web3Forms: admin notification sent', body);
+                // record status for debugging
+                localStorage.setItem('last_admin_email_status', JSON.stringify({ok: true, body: body, time: Date.now()}));
+                // update signup alert briefly (non-blocking)
+                try { setSignupAlert('success', 'Account created successfully! Admin notified by email.'); } catch (e) { /* ignore */ }
+              } else {
+                console.warn('Web3Forms: unexpected response', res.status, body);
+                localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, status: res.status, body: body, time: Date.now()}));
+                try { setSignupAlert('success', 'Account created. Failed to send admin email (check console).'); } catch (e) { /* ignore */ }
+              }
+            })
+            .catch(err => {
+              console.warn('Failed to send Web3Forms notification', err);
+              localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: String(err), time: Date.now()}));
+              try { setSignupAlert('success', 'Account created. Failed to send admin email (check console).'); } catch (e) { /* ignore */ }
+            });
+          } else {
+            console.info('Web3Forms not configured. Set WEB3FORMS_ACCESS_KEY to enable admin emails.');
+            localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: 'not_configured', time: Date.now()}));
+          }
+        } catch (err) {
+          console.warn('Web3Forms notify error', err);
+          localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: String(err), time: Date.now()}));
+        }
 
         // Create and save notification for customer
         const customerNotif = {

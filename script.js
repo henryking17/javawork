@@ -3,26 +3,20 @@
 function initializeUserSession() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const accountLink = document.querySelector('.account-link');
+  const dropdownMenu = document.querySelector('.dropdown-menu');
+  const signInLink = document.querySelector('.dropdown-signin');
+  const logoutBtn = document.querySelector('.dropdown-logout');
   const custNotifLink = document.getElementById('customerNotifLink');
   const receiptsSection = document.getElementById('receipts');
   
   if (currentUser && accountLink) {
-    // User is logged in, update the account link
-    const welcomeMsg = document.createElement('span');
-    welcomeMsg.style.display = 'inline';
-    welcomeMsg.title = `Logged in as ${currentUser.name}`;
+    // User is logged in
     accountLink.innerHTML = `<b>👤 ${currentUser.name.split(' ')[0]}</b>`;
     
-    // Add logout option
-    accountLink.onclick = function(e) {
-      e.preventDefault();
-      const logoutChoice = confirm(`Logged in as ${currentUser.name}. Logout?`);
-      if (logoutChoice) {
-        sessionStorage.removeItem('currentUser');
-        window.location.href = 'admin.html';
-      }
-    };
-
+    // Show logout, hide signin
+    if (signInLink) signInLink.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'block';
+    
     // Show customer notifications link
     if (custNotifLink) {
       custNotifLink.style.display = 'block';
@@ -34,6 +28,13 @@ function initializeUserSession() {
       receiptsSection.style.display = '';
     }
   } else {
+    // User is not logged in
+    accountLink.innerHTML = `<b>👤 Account</b>`;
+    
+    // Show signin, hide logout
+    if (signInLink) signInLink.style.display = 'block';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    
     // Hide customer notifications link if not logged in
     if (custNotifLink) {
       custNotifLink.style.display = 'none';
@@ -47,6 +48,38 @@ function initializeUserSession() {
 
   // Update admin notifications badge
   updateNotificationsBadge();
+  
+  // Setup dropdown menu toggle or direct logout
+  if (accountLink && dropdownMenu) {
+    accountLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // If user is logged in, logout immediately; otherwise toggle dropdown
+      if (currentUser) {
+        logoutBtn.click();
+      } else {
+        dropdownMenu.classList.toggle('show');
+      }
+    });
+    
+    // Setup logout button
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showNotification(`Logged out successfully. See you soon!`, 'success');
+        setTimeout(() => {
+          sessionStorage.removeItem('currentUser');
+          window.location.href = 'admin.html';
+        }, 300);
+      });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.account-dropdown')) {
+        dropdownMenu.classList.remove('show');
+      }
+    });
+  }
 }
 
 // Update customer notifications badge count
@@ -973,6 +1006,14 @@ if (hamburger && navUl) {
     const navLinks = navUl.querySelectorAll('li a, li button');
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
+            // Check if it's a dropdown toggle (account button)
+            if (link.classList.contains('dropdown-toggle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Let the dropdown menu toggle handle it - don't close the hamburger menu
+                return;
+            }
+            
             // Check if it's a hash link (navigation within same page)
             const href = link.getAttribute('href');
             if (href && href.startsWith('#')) {
@@ -3285,13 +3326,58 @@ function initCookieBanner() {
   // show banner
   showCookieBanner();
 }
+// Seed example notifications for admin and users (non-destructive)
+function seedSampleNotifications() {
+  try {
+    // Seed admin notifications if none exist
+    const adminKey = 'admin_notifications';
+    const existingAdmin = JSON.parse(localStorage.getItem(adminKey) || '[]');
+    if (!existingAdmin || existingAdmin.length === 0) {
+      const now = Date.now();
+      const sampleAdmin = [
+        { id: 'admin-1', title: 'Holiday Sale', message: 'Up to 25% off selected electronics — ends Jan 31.', time: now, read: false },
+        { id: 'admin-2', title: 'New Stock', message: 'New generators and air conditioners now available in-store.', time: now - 3600 * 1000, read: false },
+        { id: 'admin-3', title: 'Service Notice', message: 'Scheduled maintenance on payments gateway this Sunday 2AM–4AM.', time: now - 86400 * 1000, read: false }
+      ];
+      localStorage.setItem(adminKey, JSON.stringify(sampleAdmin));
+    }
+
+    // Seed current user's customer notifications, or a demo key if no user logged in
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    if (currentUser) {
+      const userKey = 'customer_notifications_' + (currentUser.id || currentUser.email || currentUser.name);
+      const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+      if (!existing || existing.length === 0) {
+        const now = Date.now();
+        const sample = [
+          { id: 'cust-1', title: 'Welcome!', message: `Thanks for joining, ${currentUser.name.split(' ')[0]} — enjoy exclusive deals.`, time: now, read: false },
+          { id: 'order-1', title: 'Order Shipped', message: 'Your order #12345 has been shipped. Track it in your receipts.', time: now - 2 * 3600 * 1000, read: false },
+          { id: 'promo-1', title: 'Special Offer', message: 'Use code NEW10 for 10% off your next purchase.', time: now - 24 * 3600 * 1000, read: false }
+        ];
+        localStorage.setItem(userKey, JSON.stringify(sample));
+      }
+    } else {
+      const demoKey = 'customer_notifications_demo@example.com';
+      const demo = JSON.parse(localStorage.getItem(demoKey) || '[]');
+      if (!demo || demo.length === 0) {
+        localStorage.setItem(demoKey, JSON.stringify([
+          { id: 'demo-1', title: 'Demo Notification', message: 'Log in to see personalized notifications. Try demo@example.com', time: Date.now(), read: false }
+        ]));
+      }
+    }
+  } catch (err) {
+    console.error('seedSampleNotifications error', err);
+  }
+}
 
 // Initialize receipts UI on load
 document.addEventListener('DOMContentLoaded', () => {
   try { migrateStoredPhones(); } catch(e) { /* ignore */ }
-    renderReceipts();
-    // initialize cookie banner after the main UI is ready
-    try { initCookieBanner(); } catch (e) { console.error('Cookie banner init error', e); }
+  // Seed sample notifications if needed
+  try { seedSampleNotifications(); } catch (e) { /* ignore */ }
+  renderReceipts();
+  // initialize cookie banner after the main UI is ready
+  try { initCookieBanner(); } catch (e) { console.error('Cookie banner init error', e); }
 });
 
 // Back to top button behavior
@@ -3323,5 +3409,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState === 'complete' || document.readyState === 'interactive') onReady();
   else document.addEventListener('DOMContentLoaded', onReady);
 })();
+
+
 
 // -------------------- End of script ---------------->

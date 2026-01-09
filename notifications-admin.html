@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - Customer Notifications</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --primary: #3b82f6;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn:hover {
+      filter: brightness(1.1);
+    }
+    .btn.secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .notifications-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .notification-item {
+      background: var(--card);
+      border-left: 4px solid var(--primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      transition: all 0.2s ease;
+    }
+    .notification-item:hover {
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    .notification-item.unread {
+      background: rgba(59, 130, 246, 0.1);
+      border-left-width: 6px;
+    }
+    .notification-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .notification-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--primary);
+    }
+    .notification-time {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .notification-content {
+      margin-bottom: 10px;
+    }
+    .notification-message {
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .customer-info {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .customer-info div {
+      margin: 4px 0;
+    }
+    .customer-info strong {
+      color: var(--primary);
+    }
+    .notification-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .action-btn:hover {
+      filter: brightness(1.1);
+    }
+    .action-btn.secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 10px;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .filter-btn:hover {
+      border-color: var(--primary);
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="index.html" class="back-link">← Back to Store</a>
+    
+    <header>
+      <div>
+        <h1>📬 Customer Notifications</h1>
+        <p style="color: var(--muted); margin: 5px 0 0;">Track new account registrations</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn secondary" onclick="markAllAsRead()">Mark All Read</button>
+        <button class="btn secondary" onclick="clearAllNotifications()" style="background: var(--danger); opacity: 0.8;">Clear All</button>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-number" id="totalCount">0</div>
+        <div class="stat-label">Total Notifications</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="unreadCount">0</div>
+        <div class="stat-label">Unread</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="todayCount">0</div>
+        <div class="stat-label">Today</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterNotifications('all')">All</button>
+      <button class="filter-btn" onclick="filterNotifications('unread')">Unread</button>
+      <button class="filter-btn" onclick="filterNotifications('today')">Today</button>
+    </div>
+
+    <div id="notificationsContainer" class="notifications-container"></div>
+  </div>
+
+  <script>
+    let allNotifications = [];
+    let currentFilter = 'all';
+
+    function loadNotifications() {
+      allNotifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+      renderNotifications();
+      updateStats();
+    }
+
+    function updateStats() {
+      const total = allNotifications.length;
+      const unread = allNotifications.filter(n => !n.read).length;
+      const today = allNotifications.filter(n => {
+        const notifDate = new Date(n.timestamp).toDateString();
+        return notifDate === new Date().toDateString();
+      }).length;
+
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('unreadCount').textContent = unread;
+      document.getElementById('todayCount').textContent = today;
+    }
+
+    function filterNotifications(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      renderNotifications();
+    }
+
+    function getFilteredNotifications() {
+      if (currentFilter === 'all') return allNotifications;
+      if (currentFilter === 'unread') return allNotifications.filter(n => !n.read);
+      if (currentFilter === 'today') {
+        const today = new Date().toDateString();
+        return allNotifications.filter(n => new Date(n.timestamp).toDateString() === today);
+      }
+      return allNotifications;
+    }
+
+    function formatDateTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderNotifications() {
+      const container = document.getElementById('notificationsContainer');
+      const filtered = getFilteredNotifications();
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3>No notifications</h3>
+            <p>New account registrations will appear here</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(notif => `
+        <div class="notification-item ${notif.read ? '' : 'unread'}">
+          <div class="notification-header">
+            <div>
+              <div class="notification-title">✨ ${notif.title}</div>
+              <div class="notification-time">${formatDateTime(notif.timestamp)}</div>
+            </div>
+          </div>
+          <div class="notification-content">
+            <div class="notification-message">${notif.message}</div>
+            <div class="customer-info">
+              <div><strong>Name:</strong> ${escapeHtml(notif.customerName)}</div>
+              <div><strong>Email:</strong> ${escapeHtml(notif.customerEmail)}</div>
+              <div><strong>Phone:</strong> ${escapeHtml(notif.customerPhone)}</div>
+            </div>
+          </div>
+          <div class="notification-actions">
+            ${notif.read ? '' : `<button class="action-btn" onclick="markAsRead('${notif.id}')">Mark as Read</button>`}
+            <button class="action-btn secondary" onclick="deleteNotification('${notif.id}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function markAsRead(notifId) {
+      const notif = allNotifications.find(n => n.id === notifId);
+      if (notif) {
+        notif.read = true;
+        localStorage.setItem('admin_notifications', JSON.stringify(allNotifications));
+        loadNotifications();
+      }
+    }
+
+    function markAllAsRead() {
+      allNotifications.forEach(n => n.read = true);
+      localStorage.setItem('admin_notifications', JSON.stringify(allNotifications));
+      loadNotifications();
+    }
+
+    function deleteNotification(notifId) {
+      allNotifications = allNotifications.filter(n => n.id !== notifId);
+      localStorage.setItem('admin_notifications', JSON.stringify(allNotifications));
+      loadNotifications();
+    }
+
+    function clearAllNotifications() {
+      if (confirm('Are you sure you want to delete all notifications?')) {
+        localStorage.setItem('admin_notifications', JSON.stringify([]));
+        loadNotifications();
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load notifications on page load
+    loadNotifications();
+
+    // Auto-refresh every 5 seconds
+    setInterval(loadNotifications, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Account - Login & Sign Up</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --primary: #3b82f6;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(1200px 600px at 20% 20%, #0b1220, var(--bg));
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+    .header {
+      margin-bottom: 18px;
+    }
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 1.4rem;
+      letter-spacing: 0.2px;
+    }
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    .label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .input {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    .error {
+      margin-top: 6px;
+      color: var(--danger);
+      font-size: 0.85rem;
+      min-height: 18px;
+    }
+    .actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.05s ease, filter 0.15s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .link {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 8px 6px;
+    }
+    .notice {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .alert {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      display: none;
+    }
+    .alert.success { border-color: #14532d; color: var(--success); display: block; }
+    .alert.error { border-color: #3f1d1d; color: var(--danger); display: block; }
+    .form-switch {
+      display: flex;
+      gap: 10px;
+      margin: 16px 0;
+      justify-content: center;
+    }
+    .form-switch button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .form-switch button.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .hidden {
+      display: none !important;
+    }
+    .back-link {
+      margin-top: 16px;
+      text-align: center;
+    }
+    .back-link a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <main class="card" aria-labelledby="form-title">
+    <div class="header">
+      <h1 id="form-title">Welcome back</h1>
+      <p id="form-subtitle">Sign in to continue</p>
+    </div>
+
+    <div class="form-switch">
+      <button id="loginTabBtn" class="active" type="button" onclick="switchTab('login')">Login</button>
+      <button id="signupTabBtn" type="button" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form id="loginForm" class="auth-form" novalidate>
+      <div class="field">
+        <label class="label" for="login-email">Email</label>
+        <input class="input" id="login-email" name="email" type="email" autocomplete="email" required />
+        <div class="error" id="loginEmailError"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="login-password">Password</label>
+        <input class="input" id="login-password" name="password" type="password" autocomplete="current-password" required />
+        <div class="error" id="loginPasswordError"></div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn" id="loginBtn">Log in</button>
+      </div>
+
+      <div class="alert" id="loginAlert" role="status" aria-live="polite"></div>
+      <p class="notice">Use your registered email and password to login.</p>
+    </form>
+
+    <!-- SIGNUP FORM -->
+    <form id="signupForm" class="auth-form hidden" novalidate>
+      <div class="field">
+        <label class="label" for="signup-name">Full Name</label>
+        <input class="input" id="signup-name" name="name" type="text" required />
+        <div class="error" id="signupNameError"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="signup-email">Email</label>
+        <input class="input" id="signup-email" name="email" type="email" autocomplete="email" required />
+        <div class="error" id="signupEmailError"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="signup-phone">Phone Number</label>
+        <input class="input" id="signup-phone" name="phone" type="tel" autocomplete="tel" required />
+        <div class="error" id="signupPhoneError"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="signup-password">Password</label>
+        <input class="input" id="signup-password" name="password" type="password" autocomplete="new-password" required />
+        <div class="error" id="signupPasswordError"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="signup-confirm">Confirm Password</label>
+        <input class="input" id="signup-confirm" name="confirm" type="password" autocomplete="new-password" required />
+        <div class="error" id="signupConfirmError"></div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn" id="signupBtn">Create Account</button>
+      </div>
+
+      <div class="alert" id="signupAlert" role="status" aria-live="polite"></div>
+      <p class="notice">Create an account to save your preferences and checkout faster.</p>
+    </form>
+
+    <div class="back-link">
+      <a href="index.html">← Back to Store</a>
+    </div>
+  </main>
+
+  <script>
+    // Load users from localStorage or use default
+    let users = JSON.parse(localStorage.getItem('site_users') || '[]');
+    
+    // If empty, initialize with some default users for testing
+    if (users.length === 0) {
+      users = [
+        {
+          id: "u_1767140780755",
+          name: "Henry Cyprain",
+          email: "henry@test.com",
+          phone: "+2348054059108",
+          pwd: "Henrymyboy",
+          created: "2025-12-31T00:26:20.757Z",
+          isAdmin: true
+        },
+        {
+          id: "u_1767147767666",
+          name: "CYMPET ELECTRONICS",
+          email: "cympet@test.com",
+          phone: "+234855555555",
+          pwd: "Cympet123",
+          created: "2025-12-31T02:22:47.667Z"
+        }
+      ];
+      localStorage.setItem('site_users', JSON.stringify(users));
+    }
+
+    let currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+
+    function switchTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const loginTabBtn = document.getElementById('loginTabBtn');
+      const signupTabBtn = document.getElementById('signupTabBtn');
+      const formTitle = document.getElementById('form-title');
+      const formSubtitle = document.getElementById('form-subtitle');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        signupForm.classList.add('hidden');
+        loginTabBtn.classList.add('active');
+        signupTabBtn.classList.remove('active');
+        formTitle.textContent = 'Welcome back';
+        formSubtitle.textContent = 'Sign in to continue';
+      } else {
+        signupForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+        signupTabBtn.classList.add('active');
+        loginTabBtn.classList.remove('active');
+        formTitle.textContent = 'Create Account';
+        formSubtitle.textContent = 'Join us today';
+      }
+    }
+
+    // LOGIN FORM
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+
+    function setLoginAlert(type, message) {
+      const alert = document.getElementById('loginAlert');
+      alert.className = 'alert ' + type;
+      alert.textContent = message;
+    }
+
+    function clearLoginErrors() {
+      document.getElementById('loginEmailError').textContent = '';
+      document.getElementById('loginPasswordError').textContent = '';
+      document.getElementById('loginAlert').className = 'alert';
+      document.getElementById('loginAlert').textContent = '';
+    }
+
+    function validateLogin() {
+      clearLoginErrors();
+      let valid = true;
+      
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      if (!email) {
+        document.getElementById('loginEmailError').textContent = 'Email is required.';
+        valid = false;
+      } else if (!email.includes('@')) {
+        document.getElementById('loginEmailError').textContent = 'Please enter a valid email.';
+        valid = false;
+      }
+
+      if (!password) {
+        document.getElementById('loginPasswordError').textContent = 'Password is required.';
+        valid = false;
+      } else if (password.length < 6) {
+        document.getElementById('loginPasswordError').textContent = 'Password must be at least 6 characters.';
+        valid = false;
+      }
+
+      return valid;
+    }
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      loginBtn.disabled = true;
+
+      try {
+        if (!validateLogin()) {
+          setLoginAlert('error', 'Please fix the errors above.');
+          return;
+        }
+
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        // Find user
+        const user = users.find(u => u.email === email && u.pwd === password);
+        
+        if (!user) {
+          setLoginAlert('error', 'Invalid email or password.');
+          return;
+        }
+
+        // Store user session
+        const userSession = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          isAdmin: user.isAdmin || false,
+          loginTime: new Date().toISOString()
+        };
+        sessionStorage.setItem('currentUser', JSON.stringify(userSession));
+        
+        setLoginAlert('success', 'Login successful! Redirecting...');
+        setTimeout(() => {
+          window.location.href = 'index.html?login=success';
+        }, 1000);
+      } catch (err) {
+        setLoginAlert('error', 'An error occurred. Please try again.');
+        console.error(err);
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    // SIGNUP FORM
+    const signupForm = document.getElementById('signupForm');
+    const signupBtn = document.getElementById('signupBtn');
+
+    function setSignupAlert(type, message) {
+      const alert = document.getElementById('signupAlert');
+      alert.className = 'alert ' + type;
+      alert.textContent = message;
+    }
+
+    function clearSignupErrors() {
+      document.getElementById('signupNameError').textContent = '';
+      document.getElementById('signupEmailError').textContent = '';
+      document.getElementById('signupPhoneError').textContent = '';
+      document.getElementById('signupPasswordError').textContent = '';
+      document.getElementById('signupConfirmError').textContent = '';
+      document.getElementById('signupAlert').className = 'alert';
+      document.getElementById('signupAlert').textContent = '';
+    }
+
+    function validateSignup() {
+      clearSignupErrors();
+      let valid = true;
+      
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const phone = document.getElementById('signup-phone').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const confirm = document.getElementById('signup-confirm').value;
+
+      if (!name) {
+        document.getElementById('signupNameError').textContent = 'Name is required.';
+        valid = false;
+      } else if (name.length < 3) {
+        document.getElementById('signupNameError').textContent = 'Name must be at least 3 characters.';
+        valid = false;
+      }
+
+      if (!email) {
+        document.getElementById('signupEmailError').textContent = 'Email is required.';
+        valid = false;
+      } else if (!email.includes('@')) {
+        document.getElementById('signupEmailError').textContent = 'Please enter a valid email.';
+        valid = false;
+      } else if (users.some(u => u.email === email)) {
+        document.getElementById('signupEmailError').textContent = 'Email already registered.';
+        valid = false;
+      }
+
+      if (!phone) {
+        document.getElementById('signupPhoneError').textContent = 'Phone is required.';
+        valid = false;
+      } else if (phone.length < 10) {
+        document.getElementById('signupPhoneError').textContent = 'Phone must be at least 10 digits.';
+        valid = false;
+      }
+
+      if (!password) {
+        document.getElementById('signupPasswordError').textContent = 'Password is required.';
+        valid = false;
+      } else if (password.length < 6) {
+        document.getElementById('signupPasswordError').textContent = 'Password must be at least 6 characters.';
+        valid = false;
+      }
+
+      if (!confirm) {
+        document.getElementById('signupConfirmError').textContent = 'Please confirm password.';
+        valid = false;
+      } else if (password !== confirm) {
+        document.getElementById('signupConfirmError').textContent = 'Passwords do not match.';
+        valid = false;
+      }
+
+      return valid;
+    }
+
+    signupForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      signupBtn.disabled = true;
+
+      try {
+        if (!validateSignup()) {
+          setSignupAlert('error', 'Please fix the errors above.');
+          return;
+        }
+
+        const name = document.getElementById('signup-name').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
+        const phone = document.getElementById('signup-phone').value.trim();
+        const password = document.getElementById('signup-password').value;
+
+        // Create new user
+        const newUser = {
+          id: 'u_' + Date.now(),
+          name: name,
+          email: email,
+          phone: phone,
+          pwd: password,
+          created: new Date().toISOString(),
+          isAdmin: false
+        };
+
+        users.push(newUser);
+        localStorage.setItem('site_users', JSON.stringify(users));
+
+        // Create and save notification for admin
+        const notification = {
+          id: 'notif_' + Date.now(),
+          type: 'new_account',
+          title: 'New Account Created',
+          message: `${name} (${email}) has created a new account`,
+          customerName: name,
+          customerEmail: email,
+          customerPhone: phone,
+          timestamp: new Date().toISOString(),
+          read: false
+        };
+        let notifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+        notifications.unshift(notification);
+        localStorage.setItem('admin_notifications', JSON.stringify(notifications));
+
+        // Create and save notification for customer
+        const customerNotif = {
+          id: 'cnotif_' + Date.now(),
+          userId: 'u_' + Date.now(),
+          type: 'account_created',
+          title: '✨ Welcome to Cympet and Co!',
+          message: `Your account has been created successfully. Welcome ${name}!`,
+          timestamp: new Date().toISOString(),
+          read: false
+        };
+
+        // Auto-login new user
+        const userSession = {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          isAdmin: false,
+          loginTime: new Date().toISOString()
+        };
+        
+        // Save customer notification with their user ID
+        customerNotif.userId = newUser.id;
+        let customerNotifications = JSON.parse(localStorage.getItem('customer_notifications_' + newUser.id) || '[]');
+        customerNotifications.unshift(customerNotif);
+        localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify(customerNotifications));
+        
+        sessionStorage.setItem('currentUser', JSON.stringify(userSession));
+
+        setSignupAlert('success', 'Account created successfully! Redirecting...');
+        setTimeout(() => {
+          window.location.href = 'index.html?signup=success';
+        }, 1000);
+      } catch (err) {
+        setSignupAlert('error', 'An error occurred. Please try again.');
+        console.error(err);
+      } finally {
+        signupBtn.disabled = false;
+      }
+    });
+
+    // Check if already logged in
+    if (currentUser) {
+      document.body.innerHTML = `
+        <main class="card">
+          <div class="header">
+            <h1>Already Logged In</h1>
+            <p>Welcome, ${escapeHtml(currentUser.name)}!</p>
+          </div>
+          <div style="margin-top: 20px;">
+            <p><strong>Email:</strong> ${escapeHtml(currentUser.email)}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(currentUser.phone)}</p>
+          </div>
+          <div class="actions">
+            <button class="btn" onclick="logout()">Logout</button>
+            <button class="link" onclick="window.location.href='index.html'">Back to Store</button>
+          </div>
+        </main>
+      `;
+
+      function logout() {
+        sessionStorage.removeItem('currentUser');
+        window.location.href = 'admin.html';
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

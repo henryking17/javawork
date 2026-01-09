@@ -1,3 +1,145 @@
+// ========== USER ACCOUNT MANAGEMENT ==========
+// Check if user is logged in and display account status
+function initializeUserSession() {
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const accountLink = document.querySelector('.account-link');
+  const custNotifLink = document.getElementById('customerNotifLink');
+  
+  if (currentUser && accountLink) {
+    // User is logged in, update the account link
+    const welcomeMsg = document.createElement('span');
+    welcomeMsg.style.display = 'inline';
+    welcomeMsg.title = `Logged in as ${currentUser.name}`;
+    accountLink.innerHTML = `<b>👤 ${currentUser.name.split(' ')[0]}</b>`;
+    
+    // Add logout option
+    accountLink.onclick = function(e) {
+      e.preventDefault();
+      const logoutChoice = confirm(`Logged in as ${currentUser.name}. Logout?`);
+      if (logoutChoice) {
+        sessionStorage.removeItem('currentUser');
+        window.location.href = 'admin.html';
+      }
+    };
+
+    // Show customer notifications link
+    if (custNotifLink) {
+      custNotifLink.style.display = 'block';
+      updateCustomerNotificationsBadge();
+    }
+  } else {
+    // Hide customer notifications link if not logged in
+    if (custNotifLink) {
+      custNotifLink.style.display = 'none';
+    }
+  }
+
+  // Update admin notifications badge
+  updateNotificationsBadge();
+}
+
+// Update customer notifications badge count
+function updateCustomerNotificationsBadge() {
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  if (!currentUser) return;
+
+  const notifications = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('custNotifBadge');
+  
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// Update admin notifications badge count
+function updateNotificationsBadge() {
+  const notifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notifBadge');
+  
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initializeUserSession);
+
+// Update badges every 3 seconds
+setInterval(() => {
+  updateNotificationsBadge();
+  updateCustomerNotificationsBadge();
+}, 3000);
+
+// Show notification if login/signup was successful
+window.addEventListener('load', function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('login') === 'success') {
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    if (currentUser) {
+      showNotification(`Welcome back, ${currentUser.name}!`, 'success');
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } else if (params.get('signup') === 'success') {
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    if (currentUser) {
+      showNotification(`Welcome, ${currentUser.name}! Your account has been created.`, 'success');
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+});
+
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#22c55e' : '#3b82f6'};
+    color: white;
+    padding: 16px 20px;
+    border-radius: 8px;
+    z-index: 10000;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideIn 0.3s ease;
+  `;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
 // --- Receipts: collapsible inline view + open in new tab ---
 // Replace the existing renderReceipts(), viewReceipt(), and printReceipt() functions
 // with the code below (they integrate with the same localStorage keys used elsewhere).
@@ -330,6 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (receiptsClear) {
     receiptsClear.addEventListener('click', () => { if (receiptsSearch) { receiptsSearch.value = ''; receiptsSearch.focus(); renderReceipts(); } });
   }
+  // Ensure products are ordered according to saved preference on initial load
+  try { const mode = getProductSortMode(); if (typeof sortProductGrid === 'function') sortProductGrid(mode); } catch (e) {}
 });
 
 
@@ -343,6 +487,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('search-btn');
   const productCards = () => Array.from(document.querySelectorAll('.product-card'));
   const productsSection = document.querySelector('#products .product-grid');
+  // Initialize sort select and sync state
+  const sortSelect = document.getElementById('sort-select');
+  try {
+    const cur = getProductSortMode();
+    if (sortSelect) {
+      sortSelect.value = cur;
+      sortSelect.addEventListener('change', () => {
+        setProductSortMode(sortSelect.value);
+      });
+    }
+    // set visual icon and apply sorting immediately
+    setProductSortMode(cur);
+  } catch (e) { /* ignore */ }
   // Track whether user has an active search so we can restore scroll when cleared
   let isSearching = false;
   let searchPriorScroll = null;
@@ -366,6 +523,80 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function hideNoResults() {
     if (noResultsEl && noResultsEl.parentNode) noResultsEl.parentNode.removeChild(noResultsEl);
+  }
+
+  // Product sort helpers and sort function (modes: 'az','za','price-asc','price-desc')
+  function getProductSortMode() {
+    // Backwards compatibility for old 'product_sort_order'
+    const legacy = localStorage.getItem('product_sort_order');
+    if (legacy === 'asc') return 'az';
+    if (legacy === 'desc') return 'za';
+    return localStorage.getItem('product_sort_mode') || 'az';
+  }
+
+  function setProductSortMode(mode) {
+    const valid = ['az', 'za', 'price-asc', 'price-desc'];
+    if (!valid.includes(mode)) mode = 'az';
+    localStorage.setItem('product_sort_mode', mode);
+    const select = document.getElementById('sort-select');
+    const icon = document.getElementById('sort-icon');
+    if (select) select.value = mode;
+    if (icon) {
+      if (mode === 'az') icon.textContent = 'A→Z';
+      else if (mode === 'za') icon.textContent = 'Z→A';
+      else if (mode === 'price-asc') icon.textContent = '₦↑';
+      else icon.textContent = '₦↓';
+    }
+    sortProductGrid(mode);
+  }
+
+  function parsePriceFromCard(card) {
+    // Try data-price attribute first
+    const dp = card.getAttribute('data-price');
+    if (dp) {
+      const n = Number(String(dp).replace(/[^0-9.-]+/g, ''));
+      if (!Number.isNaN(n)) return n;
+    }
+    // fallback: search for price-like patterns in text
+    const txt = (card.textContent || '');
+    const m = txt.match(/(?:₦|NGN|NGN\s*|ngn|₦\s*|\$|£|€)?\s*([0-9]{1,3}(?:[,\s][0-9]{3})*(?:\.[0-9]+)?)/);
+    if (m && m[1]) {
+      const n = Number(m[1].replace(/[, ]+/g, ''));
+      if (!Number.isNaN(n)) return n;
+    }
+    return null;
+  }
+
+  function sortProductGrid(mode) {
+    const m = mode || getProductSortMode();
+    const selectors = ['#products .product-grid', '#category-products'];
+    selectors.forEach(sel => {
+      const grid = document.querySelector(sel);
+      if (!grid) return;
+      const cards = Array.from(grid.querySelectorAll('.product-card'));
+      if (!cards.length) return;
+
+      if (m === 'az' || m === 'za') {
+        cards.sort((a, b) => {
+          const ta = (a.querySelector('h3')?.textContent || '').trim().toLowerCase();
+          const tb = (b.querySelector('h3')?.textContent || '').trim().toLowerCase();
+          const cmp = ta.localeCompare(tb, undefined, { numeric: true, sensitivity: 'base' });
+          return m === 'az' ? cmp : -cmp;
+        });
+      } else {
+        // price sort
+        const asc = m === 'price-asc';
+        cards.sort((a, b) => {
+          const pa = parsePriceFromCard(a);
+          const pb = parsePriceFromCard(b);
+          const va = (pa === null) ? (asc ? Infinity : -Infinity) : pa;
+          const vb = (pb === null) ? (asc ? Infinity : -Infinity) : pb;
+          return asc ? (va - vb) : (vb - va);
+        });
+      }
+
+      cards.forEach(c => grid.appendChild(c));
+    });
   }
 
   function performSearch() {
@@ -397,6 +628,8 @@ document.addEventListener('DOMContentLoaded', () => {
       isSearching = false;
       searchPriorScroll = null;
       lastSearchQuery = '';
+      // Restore alphabetical ordering when search is cleared
+      try { sortProductGrid(); } catch (e) { /* ignore */ }
       return;
     }
 
@@ -1172,8 +1405,8 @@ const productVariants = {
 
 // Catalog entries used when user adds the displayed product card items directly to cart
 const productCatalog = {
-    'Air Conditioners': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100', unit_price: 100, stock: 8 },
-    'Blenders': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12, specs: { 'Capacity': '1.5 L', 'Power': '800W', 'Speeds': '3' }, image: 'https://www.bing.com/th/id/OIP.388XH-VhQEqoNURALL__qAHaMI?w=160&h=211&c=8&rs=1&qlt=90&o=6&cb=ucfimg1&pid=3.1&rm=2&ucfimg=1' },
+    'Hisense Air Conditioner': { name: 'Air Conditioners', description: 'Energy-saving split and window AC units', priceStr: '₦100', unit_price: 100, stock: 8 },
+    'Kenwood Blender': { name: 'Blenders', description: 'High-performance kitchen blenders', priceStr: '₦60,000', unit_price: 60000, stock: 12, specs: { 'Capacity': '1.5 L', 'Warranty':'2years',  'Power': '800W', 'Speeds': '3' }, image: 'https://www.bing.com/th/id/OIP.388XH-VhQEqoNURALL__qAHaMI?w=160&h=211&c=8&rs=1&qlt=90&o=6&cb=ucfimg1&pid=3.1&rm=2&ucfimg=1' },
     'Ceiling Fans': { name: 'Ceiling Fans', description: 'Quiet, energy-efficient ceiling fans', priceStr: '₦35,000', unit_price: 35000, stock: 18 },
     'Elepaq Constant Generators': { name: 'Elepaq Constant Generators', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
     'Freezer': { name: 'Freezer', description: 'Chest and upright freezers', priceStr: '₦180,000', unit_price: 180000, stock: 10 },
@@ -1188,18 +1421,20 @@ const productCatalog = {
     'Elepaq Constant Generator SV6800E2': { name: 'Elepaq Constant Generator SV6800E2', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6 },
     'Hisense Microwave 20 Litres': { name: 'Hisense Microwave 20 Litres', description: '20-litre microwave oven', priceStr: '₦45,000', unit_price: 45000, stock: 12, specs: { 'Capacity': '20 Litres', 'Power': '1000W', 'Features': 'Auto-rotation, 10 power levels, Child lock', 'Controls': 'Touch panel with timer', 'Warranty': '1 year' } },
     'Elepaq Constant Generator SV2200': { name: 'Elepaq Constant Generator SV2200', description: 'Reliable petrol/diesel generators', priceStr: '₦380,000', unit_price: 380000, stock: 6, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR in some models', 'Warranty': '1 year' } },
-   'Elepaq Constant Generator EC5800CX': { name: 'Elepaq Constant Generator EC5800CX', description: 'Reliable petrol/diesel generators', priceStr: '₦150,000', unit_price: 150000, stock: 10, specs: { 'Fuel Type': 'Diesel', 'Capacity Range': '1.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
-'Sumec Firman Generator SPG2900': { name: 'Sumec Firman Generator SPG2900', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '1.0kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
-'Sumec Firman Generator SPG3000 Manual': { name: 'Sumec Firman Generator SPG3000 Manual', description: 'Portable & industrial generators', priceStr: '₦400,000', unit_price: 400000, stock: 4, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR', 'Warranty': '1 year' } },
-'LG 43\' Smart Television': { name: "LG 43' Smart Television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/76/767676/1.jpg?7689' },
-'Elepaq Constant Generator SV22000E2': { name: "Elepaq Constant Generator SV22000E2", description: "Reliable petrol/diesel generators", priceStr: "₦2,500,000", unit_price: 2500000, stock: 1 },
-'Elepaq Constant Generator SV6800E2': { name: "Elepaq Constant Generator SV6800E2", description: "Reliable petrol/diesel generators", priceStr: "₦800,000", unit_price: 800000, stock: 2 },
-'Snowsea Freezer': { name: "Snowsea Freezer 150L", description: "150-litre chest freezer", priceStr: "₦120,000", unit_price: 120000, stock: 7, specs: { 'Capacity': '150 Litres', 'Type': 'Chest Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦140,000", unit_price: 140000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦200,000", unit_price: 200000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-'LG Sound System': { name: "LG Sound System", description: "Powerful home theatre sound system", priceStr: "₦150,000", unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power Output': '1000W', 'Connectivity': 'Bluetooth, HDMI, Optical' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987123/1.jpg?1234' },
-'Elepaq Constant Generator SV6800': { name: "Elepaq Constant Generator SV6800", description: "Reliable petrol/diesel generators", priceStr: "₦600,000", unit_price: 600000, stock: 3 },
-// Television models with specs and images
+    'Elepaq Constant Generator EC5800CX': { name: 'Elepaq Constant Generator EC5800CX', description: 'Reliable petrol/diesel generators', priceStr: '₦150,000', unit_price: 150000, stock: 10, specs: { 'Fuel Type': 'Diesel', 'Capacity Range': '1.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
+    'Sumec Firman Generator SPG2900': { name: 'Sumec Firman Generator SPG2900', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '1.0kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
+    'Sumec Firman Generator SPG3000 Manual': { name: 'Sumec Firman Generator SPG3000 Manual', description: 'Portable & industrial generators', priceStr: '₦400,000', unit_price: 400000, stock: 4, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR', 'Warranty': '1 year' } },
+    'LG 43\' Smart Television': { name: "LG 43' Smart Television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/76/767676/1.jpg?7689' },
+    'Elepaq Constant Generator SV22000E2': { name: "Elepaq Constant Generator SV22000E2", description: "Reliable petrol/diesel generators", priceStr: "₦2,500,000", unit_price: 2500000, stock: 1 },
+    'Elepaq Constant Generator SV6800E2': { name: "Elepaq Constant Generator SV6800E2", description: "Reliable petrol/diesel generators", priceStr: "₦800,000", unit_price: 800000, stock: 2 },
+    'Snowsea Freezer': { name: "Snowsea Freezer 150L", description: "150-litre chest freezer", priceStr: "₦120,000", unit_price: 120000, stock: 7, specs: { 'Capacity': '150 Litres', 'Type': 'Chest Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+    'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦140,000", unit_price: 140000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+    'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦200,000", unit_price: 200000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+    'LG Sound System': { name: "LG Sound System", description: "Powerful home theatre sound system", priceStr: "₦150,000", unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power Output': '1000W', 'Connectivity': 'Bluetooth, HDMI, Optical' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987123/1.jpg?1234' },
+    'Elepaq Constant Generator SV6800': { name: "Elepaq Constant Generator SV6800", description: "Reliable petrol/diesel generators", priceStr: "₦600,000", unit_price: 600000, stock: 3 },
+
+
+    // Television models with specs and images
   
     "LG 32' LED television": { name: "LG 32' LED television", description: "32-inch LED TV — HDMI, USB, VGA; 720p HD", priceStr: '₦75,000', unit_price: 75000, stock: 6, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'No', 'HDMI Ports': '2', 'USB Ports': '1' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/64/0120121/1.jpg?0503' },
     "LG 32' Smart Television": { name: "LG 32' Smart Television", description: "32-inch Smart LED TV — WiFi, Smart apps, HDMI", priceStr: '₦95,000', unit_price: 95000, stock: 4, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in', 'HDMI Ports': '2' }, image: 'https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/622f7911-883c-495a-bedd-bdb32f7e4817/TVs-32LR600BZUC-gallery-01_3000x3000?io=transform:fill,width:596' },
@@ -2302,9 +2537,9 @@ const productSpecs = {
         'Capacity Range': '0.75 HP to 2.5 HP',
         'Energy Efficiency': 'Inverter models available (R32, R410A)',
         'Features': 'Auto-restart, Sleep mode, Remote control, Timer',
-        'Warranty': '1-3 years'
+        'Warranty': '1-3 years' 
     },
-    'Blenders': {
+    'Kenwood Blender': {
         'Power': '500W - 1200W',
         'Jar Material': 'Glass and BPA-free plastic options',
         'Speeds': 'Multi-speed with pulse setting',

@@ -58,6 +58,9 @@
                     <li><a href="#contact"><b>Contact</b></a></li>
                     <li><a href="#receipts"><b>Receipts</b></a></li>
                     <li><a href="#payment"><b>Payment</b></a></li>
+                    <li><a href="admin.html" class="account-link"><b>Account</b></a></li>
+                    <li id="customerNotifLink" style="display: none;"><a href="notifications-customer.html" style="position: relative;"><b>🔔 My Notifications</b><span id="custNotifBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;"></span></a></li>
+                    <li><a href="notifications-admin.html" style="position: relative;"><b>📬 Notifications</b><span id="notifBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold;"></span></a></li>
                 </ul>
             </nav>
             <div class="search-bar">
@@ -93,21 +96,34 @@
                 </div>
             </div>
 
-            <h2 id="featured-products" class="animated-heading">Featured Products</h2>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <h2 id="featured-products" class="animated-heading">Featured Products</h2>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label for="sort-select" class="sr-only">Sort products</label>
+                    <select id="sort-select" class="btn ghost" aria-label="Sort products">
+                        <option value="az">A → Z</option>
+                        <option value="za">Z → A</option>
+                        <option value="price-asc">Price ↑</option>
+                        <option value="price-desc">Price ↓</option>
+                    </select>
+                    <span id="sort-icon" aria-hidden="true" style="font-size:0.95rem; color:#555;">↕</span>
+                </div>
+            </div>
+
             <div class="product-grid">
                 <div class="product-card" tabindex="0" id="product-air-conditioners">
                     <div class="product-image">
-                        <img src="https://th.bing.com/th/id/OIP.weqyumFL6zy9KUhaA8FVuQHaHa?w=164&h=180&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
+                        <img src="https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/66/3145714/1.jpg?2293" alt="">
                     </div>
-                    <h3>Air Conditioners</h3>
+                    <h3>Hisense Inverter Air Conditioner 1.5HP</h3>
                     <p>Energy-saving split and window AC units available.</p>
                 </div>
 
                 <div class="product-card" tabindex="0">
                     <div class="product-image">
-                        <img src="https://www.bing.com/th/id/OIP.388XH-VhQEqoNURALL__qAHaMI?w=160&h=211&c=8&rs=1&qlt=90&o=6&cb=ucfimg1&pid=3.1&rm=2&ucfimg=1" alt="">
+                        <img src="https://tse4.mm.bing.net/th/id/OIP.OUde7dLqbbII2iOvtur-YQHaHa?rs=1&pid=ImgDetMain&o=7&rm=3" alt="">
                     </div>
-                    <h3>Blenders</h3>
+                    <h3>Kenwood Blender</h3>
                     <p>High-performance kitchen blenders for smoothies and more.</p>
                 </div>
 
@@ -198,6 +214,94 @@
 
                 <div class="product-card" tabindex="0">
                     <div class="product-image">
+                        <img src="https://perfectmalls.com.ng/wp-content/uploads/2025/01/2-69.jpg" alt="">
+                    </div>
+                    <h3>Century Stabilizer 2000Watts</h3>
+                    <p>Reliable 2000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://ng.jumia.is/bwStb9-30hcpj0QUOrK84gVry_A=/fit-in/500x500/filters:fill(white)/product/63/7496662/1.jpg?1547" alt="">
+                    </div>
+                    <h3>Century Stabilizer 5000Watts</h3>
+                    <p>Reliable 5000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://mitosshoppers.com/wp-content/uploads/2022/08/Untitled-design-2.jpg" alt="">
+                    </div>
+                    <h3>Power Deluxe Stabilizer 1000Watts</h3>
+                    <p>Reliable 1000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://www-konga-com-res.cloudinary.com/f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product/Z/R/155037_1575991530.jpg" alt="">
+                    </div>
+                    <h3>Power Deluxe Stabilizer 2000Watts</h3>
+                    <p>Reliable 2000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://jaburatta.com/wp-content/uploads/2022/01/2a69410a25c40ddd9c7c170d9172f73e3c6d7b41-1.jpg" alt="">
+                    </div>
+                    <h3>Power Deluxe Stabilizer 5000Watts</h3>
+                    <p>Reliable 5000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://tobuy.ng/sites/default/files/products/download%20-%202022-12-09T172537.513.jpg" alt="">
+                    </div>
+                    <h3>Dura Volt Stabilizer 1000Watts</h3>
+                    <p>Reliable 1000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product/H/X/119570_1669205609.jpg" alt="">
+                    </div>
+                    <h3>Dura Volt Stabilizer 2000Watts</h3>
+                    <p>Reliable 2000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://tse2.mm.bing.net/th/id/OIP.GJgoTg-o5f1OFM8dWxQwwgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3" alt="">
+                    </div>
+                    <h3>Dura Volt Stabilizer 5000Watts</h3>
+                    <p>Reliable 5000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://www.sumecplaza.com/cdn/shop/products/Untitleddesign_45_1800x1800.png?v=1657022532" alt="">
+                    </div>
+                    <h3>Firman Stabilizer 1000Watts</h3>
+                    <p>Reliable 1000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://d21d281c1yd2en.cloudfront.net/media/product_images/firman-2000va-stabilizer-with-usb-port-fvr-2000_2.0.webp" alt="">
+                    </div>
+                    <h3>Firman Stabilizer 2000Watts</h3>
+                    <p>Reliable 2000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
+                        <img src="https://www.sumecplaza.com/cdn/shop/products/STABLIZER5000W_1800x1800.jpg?v=1649261921" alt="">
+                    </div>
+                    <h3>Firman Stabilizer 5000Watts</h3>
+                    <p>Reliable 5000Watts Stabilizer for home and office use.</p>
+                </div>
+
+                <div class="product-card" tabindex="0">
+                    <div class="product-image">
                         <img src="https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/41/1976814/1.jpg?5522" alt="">
                     </div>
                     <h3>Hisense 43' Smart Television</h3>
@@ -259,11 +363,11 @@
                     <div class="product-image">
                        <img src="https://th.bing.com/th/id/OIP.P813Fe5maQjXKGWnCM7ZbwHaHa?w=182&h=182&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
                     </div>
-                    <h3>Ceiling Fans</h3>
-                    <p>Quiet, energy-efficient ceiling fans in various sizes.</p>
+                    <h3>ORL Giant 62' Ceiling Fan</h3>
+                    <p>Quiet, energy-efficient ceiling fan.</p>
                 </div>
 
-<div class="product-card" tabindex="0" id="product-generators">
+                  <div class="product-card" tabindex="0" id="product-generators">
                     <div class="product-image">
                        <img src="https://seeronlinemall.com/wp-content/uploads/2018/09/Elepaq2.5Manual.jpg" alt="">
                     </div>
@@ -307,7 +411,7 @@
                     <div class="product-image">
                         <img src="https://th.bing.com/th/id/OIP.aV9xVf1Bd2cxWtMsCWAnOgHaHa?w=196&h=196&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
                     </div>
-                    <h3>Microphones</h3>
+                    <h3>Microphone</h3>
                     <p>Wired and wireless microphones for stage and recording.</p>
                 </div>
 
@@ -315,39 +419,64 @@
                     <div class="product-image">
                        <img src="https://th.bing.com/th/id/OIP.OR4v9AExTZxx2nAPrVKaWgHaHa?w=188&h=188&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
                     </div>
-                    <h3>Rechargeable Standing Fans</h3>
+                    <h3>Century Rechargeable Standing Fan</h3>
                     <p>Battery powered standing fans — portable and efficient.</p>
                  </div>
-
-                <div class="product-card" id="product-refrigerator">
-                    <div class="product-image">
-                        <img src="https://th.bing.com/th/id/OIP.Bi2GutBeEfZDYgfRy3h6FwHaHa?w=201&h=200&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="fridge">
-                    </div>
-                    <h3>Refrigerator</h3>
-                    <p>Single and double-door refrigerators with inverter compressors.</p>
-                </div>
 
                 <div class="product-card">
                     <div class="product-image">
                         <img src="https://th.bing.com/th/id/OIP.UR2WAcsfBD5_xyTpsCGiOwHaHa?w=210&h=211&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
                     </div>
-                    <h3>Standing Fans</h3>
+                    <h3>OX Standing Fan</h3>
                     <p>Adjustable-height standing fans for home and office.</p>
                 </div>
 
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://tse3.mm.bing.net/th/id/OIP.hzbba50ZTX4hmAIiNZrGVgHaHa?rs=1&pid=ImgDetMain&o=7&rm=3" alt="">
+                    </div>
+                    <h3>ORL Giant 60' ceiling Fan</h3>
+                    <p>Quiet, energy-efficient ceiling fan.</p>
+                </div>
+
+                 <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://th.bing.com/th/id/OIP.XD6gTgmycrlm9L0V82jGxQHaHa?w=174&h=180&c=7&r=0&o=7&pid=1.7&rm=3" alt="">
+                    </div>
+                    <h3>Sumec Firman Generator ECO-10990ES</h3>
+                    <p>Reliable Sumec Firman power generator for home and office use</p>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/69/9404482/1.jpg?0737" alt="">
+                    </div>
+                    <h3>Hisense Inverter Air Conditioner 2HP</h3>
+                    <p>Energy-saving split and window AC units available.</p>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://www.nawewee.com/wp-content/uploads/2021/08/Hisense-1HP-Inverter-AC.jpg" alt="">
+                    </div>
+                    <h3>Hisense Inverter Air Conditioner 1HP</h3>
+                    <p>Energy-saving split and window AC units available.</p>
+                </div>
+
+
                 <div class="product-card" tabindex="0">
                     <div class="product-image">
-                        <img src="https://th.bing.com/th/id/OIP.t4ynl7LinwNsnSLiQV7bGAHaGy?w=198&h=181&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="Stabilizers">
+                        <img src="https://d21d281c1yd2en.cloudfront.net/media/product_images/stabilizers-century-century-automatic-voltage-stabilizer-1000va_1.0.webp" alt="Stabilizers">
                     </div>
-                    <h3>Stabilizers</h3>
-                    <p>Voltage stabilizers to protect electronics from surges.</p>
+                    <h3>Century Stabilizer 1000Watts</h3>
+                    <p>Reliable 1000Watts Stabilizer for home and office use.</p>
                 </div>
 
                 <div class="product-card" tabindex="0">
                     <div class="product-image">
                         <img src="https://th.bing.com/th/id/OIP.eV81k98M89KR3KLPgE08SQHaHa?w=182&h=182&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1" alt="">
                     </div>
-                    <h3>Wall Fans</h3>
+                    <h3>OX Wall Fan</h3>
                     <p>Space-saving wall-mounted fans for workshops and rooms.</p>
                 </div>
 

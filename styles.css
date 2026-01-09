@@ -76,31 +76,21 @@ header .container {
 
 .logo h1 {
     font-size: 1.5rem;
-    animation: fadeInUp 1.5s ease-out;
     position: relative;
     padding: 0;
     height: fit-content;
     background: none;
     border-radius: 0;
     color: #dc143c;
-    box-shadow:
-        0 0 10px rgba(220, 20, 60, 0.8),
-        0 0 20px rgba(220, 20, 60, 0.6),
-        0 0 30px rgba(220, 20, 60, 0.5),
-        0 0 40px rgba(220, 20, 60, 0.4),
-        0 0 50px rgba(220, 20, 60, 0.3);
     border: none;
     outline: none;
-    text-shadow: 0 0 10px rgba(220, 20, 60, 0.5);
 }
 
 .logo-icon {
     display: inline-block;
     font-size: 1.8rem;
     margin-right: 10px;
-    animation: iconPulse 2s ease-in-out infinite;
     color: #ff6b6b;
-    text-shadow: 0 0 10px #ff6b6b, 0 0 20px #dc143c;
 }
 
 .logo h1::before {
@@ -111,15 +101,8 @@ header .container {
     right: -4px;
     bottom: -4px;
     background: white;
-    background-size: 400% 400%;
     border-radius: 20px;
     z-index: -1;
-    animation: borderGlow 3s ease-in-out infinite;
-    box-shadow: 
-        0 0 10px #dc143c,
-        0 0 20px #ff6b6b,
-        0 0 30px #dc143c,
-        inset 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 /* Keyframes for heading animation */
@@ -366,7 +349,6 @@ nav ul.show {
 .hero h2 {
     font-size: 3rem;
     margin-bottom: 1rem;
-    animation: slideInLeft 1.5s ease-out 0.5s both;
 }
 
 .hero p {

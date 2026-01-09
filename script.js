@@ -1881,6 +1881,14 @@ function showCheckoutMessage(msg, type) {
 
 // Initiate paying with Paystack (opens checkout modal)
 function initiateCardPayment() {
+    // Check if user is logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+        alert('You must create an account and login before making a purchase. Please go to Account to sign up.');
+        window.location.href = 'admin.html';
+        return;
+    }
+    
     showCheckoutModal();
 }
 
@@ -2008,6 +2016,14 @@ function checkout(customerInfo = {}, deliveryType = 'delivery') {
 
 // Cash on Delivery flow
 function initiateCashOnDelivery() {
+    // Check if user is logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+        alert('You must create an account and login before making a purchase. Please go to Account to sign up.');
+        window.location.href = 'admin.html';
+        return;
+    }
+    
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty! Add items before placing an order.');
         return;
@@ -2017,6 +2033,14 @@ function initiateCashOnDelivery() {
 
 // Pickup flow (same behavior as home delivery)
 function initiatePickup() {
+    // Check if user is logged in
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) {
+        alert('You must create an account and login before making a purchase. Please go to Account to sign up.');
+        window.location.href = 'admin.html';
+        return;
+    }
+    
     if (Object.keys(cart).length === 0) {
         alert('Your cart is empty! Add items before placing an order.');
         return;

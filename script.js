@@ -543,6 +543,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchBtn = document.getElementById('search-btn');
   const productCards = () => Array.from(document.querySelectorAll('.product-card'));
   const productsSection = document.querySelector('#products .product-grid');
+  
+  // Initialize favorite stars on products
+  try {
+    addFavoriteStarToProducts();
+  } catch (e) { /* ignore */ }
+  
   // Initialize sort select and sync state
   const sortSelect = document.getElementById('sort-select');
   try {
@@ -653,6 +659,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       cards.forEach(c => grid.appendChild(c));
     });
+    
+    // Re-add favorite stars after sorting
+    try {
+      addFavoriteStarToProducts();
+    } catch (e) { /* ignore */ }
   }
 
   function performSearch() {
@@ -1280,6 +1291,24 @@ document.addEventListener('DOMContentLoaded', function() {
           modal.style.display = 'block';
         });
 
+        // add favorite star to clone if function exists
+        try {
+          const title = clone.querySelector('h3') ? clone.querySelector('h3').textContent.trim() : '';
+          if (title) {
+            const starBtn = document.createElement('button');
+            starBtn.className = 'favorite-star';
+            starBtn.type = 'button';
+            starBtn.textContent = favorites[title] ? '⭐' : '☆';
+            starBtn.style.cssText = 'position:absolute; top:12px; right:12px; background:rgba(255,255,255,0.9); border:1px solid rgba(0,0,0,0.1); border-radius:50%; width:40px; height:40px; font-size:20px; cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center;';
+            starBtn.addEventListener('click', (ev) => { ev.stopPropagation(); toggleFavorite(title); });
+            const imgContainer = clone.querySelector('.product-image');
+            if (imgContainer) {
+              imgContainer.style.position = 'relative';
+              imgContainer.appendChild(starBtn);
+            }
+          }
+        } catch (e) { /* ignore */ }
+
         grid.appendChild(clone);
       });
 
@@ -1516,16 +1545,34 @@ const productCatalog = {
     'Elepaq Constant Generator EC5800CX': { name: 'Elepaq Constant Generator EC5800CX', description: 'Reliable petrol/diesel generators', priceStr: '₦150,000', unit_price: 150000, stock: 10, specs: { 'Fuel Type': 'Diesel', 'Capacity Range': '1.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
     'Sumec Firman Generator SPG2900': { name: 'Sumec Firman Generator SPG2900', description: 'Portable & industrial generators', priceStr: '₦350,000', unit_price: 350000, stock: 5, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '1.0kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator', 'Warranty': '1 year' } },
     'Sumec Firman Generator SPG3000 Manual': { name: 'Sumec Firman Generator SPG3000 Manual', description: 'Portable & industrial generators', priceStr: '₦400,000', unit_price: 400000, stock: 4, specs: { 'Fuel Type': 'Petrol', 'Capacity Range': '2.2kVA', 'Start Type': 'Recoil start', 'Features': 'Oil alert, Voltage regulator, AVR', 'Warranty': '1 year' } },
-    'LG 43\' Smart Television': { name: "LG 43' Smart Television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/76/767676/1.jpg?7689' },
+    'LG 43\' Smart Television': { name: "LG 43' Smart Television", description: "43-inch Smart LED TV — Smart apps, WiFi" , priceStr: '₦185,000', unit_price: 185000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/45/0364104/1.jpg?5586' },
     'Elepaq Constant Generator SV22000E2': { name: "Elepaq Constant Generator SV22000E2", description: "Reliable petrol/diesel generators", priceStr: "₦2,500,000", unit_price: 2500000, stock: 1 },
     'Elepaq Constant Generator SV6800E2': { name: "Elepaq Constant Generator SV6800E2", description: "Reliable petrol/diesel generators", priceStr: "₦800,000", unit_price: 800000, stock: 2 },
-    'Snowsea Freezer': { name: "Snowsea Freezer 150L", description: "150-litre chest freezer", priceStr: "₦120,000", unit_price: 120000, stock: 7, specs: { 'Capacity': '150 Litres', 'Type': 'Chest Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-    'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦140,000", unit_price: 140000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-    'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦200,000", unit_price: 200000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
-    'LG Sound System': { name: "LG Sound System", description: "Powerful home theatre sound system", priceStr: "₦150,000", unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power Output': '1000W', 'Connectivity': 'Bluetooth, HDMI, Optical' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987123/1.jpg?1234' },
+    'Snowsea Freezer BD-178': { name: "Snowsea Freezer BD-178", description: "178-litre chest freezer", priceStr: "₦220,000", unit_price: 220000, stock: 7, specs: { 'Capacity': '178 Litres', 'Type': 'Chest Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://tse3.mm.bing.net/th/id/OIP.wSRj1sgYRKuDgiV9wEgGhgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3' },
+    'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦340,000", unit_price: 340000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+    'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦390,000", unit_price: 390000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/194761/1.jpg?5262' },
+    'LG Sound System': { name: "LG Sound System", description: "Powerful home theatre sound system", priceStr: "₦150,000", unit_price: 150000, stock: 6, specs: { 'Channels': '5.1', 'Power Output': '1000W', 'Connectivity': 'Bluetooth, HDMI, Optical' }, image: 'https://ng.jumia.is/unsafe/fit-in/680x680/filters:fill(white)/product/90/422308/1.jpg?2431' },
     'Elepaq Constant Generator SV6800': { name: "Elepaq Constant Generator SV6800", description: "Reliable petrol/diesel generators", priceStr: "₦600,000", unit_price: 600000, stock: 3 },
-
-
+    'Kenwood Blender': { name: "Kenwood Blender", description: "High-performance kitchen blender", priceStr: "₦60,000", unit_price: 60000, stock: 12, specs: { 'Capacity': '1.5 L', 'Power': '800W', 'Speeds': '3', 'Blades': 'Stainless steel', 'Warranty': '2 years' }, image: 'https://tse4.mm.bing.net/th/id/OIP.OUde7dLqbbII2iOvtur-YQHaHa?rs=1&pid=ImgDetMain&o=7&rm=3' },
+    'Maxi Microwave 20 Litres': { name: "Maxi Microwave 20 Litres", description: "20-litre microwave oven", priceStr: "₦40,000", unit_price: 40000, stock: 15, specs: { 'Capacity': '20 Litres', 'Power': '700W', 'Features': 'Auto-rotation, 8 power levels, Child lock', 'Controls': 'Dial with timer', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/87/8785814/1.jpg?6115' },
+    'Snowsea Freezer BD-370': { name: "Snowsea Freezer BD-370", description: "370-litre upright freezer", priceStr: "₦200,000", unit_price: 200000, stock: 3, specs: { 'Capacity': '370 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/29/0258353/1.jpg?1892' },
+    'Snowsea Freezer BD-208': { name: "Snowsea Freezer BD-208", description: "208-litre upright freezer", priceStr: "₦140,000", unit_price: 140000, stock: 5, specs: { 'Capacity': '208 Litres', 'Type': 'Upright Freezer', 'Energy Rating': '4-star', 'Defrosting': 'Manual', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/59/5602573/1.jpg?9413' },
+    'Sumec Firman Generator ECO-10990ES': { name: "Sumec Firman Generator ECO-10990ES", description: "Portable & industrial generators", priceStr: "₦1,200,000", unit_price: 1200000, stock: 2, specs: { 'Fuel Type': 'Diesel', 'Capacity Range': '9kVA', 'Start Type': 'Electric start', 'Features': 'Oil alert, Voltage regulator, AVR', 'Warranty': '1 year' } },
+    'Power Deluxe Stabilizer 5000Watts': { name: "Power Deluxe Stabilizer 5000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦45,000", unit_price: 45000, stock: 10, specs: { 'Capacity': '5000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/225972/1.jpg?5293' },
+    'Power Deluxe Stabilizer 2000Watts': { name: "Power Deluxe Stabilizer 2000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦30,000", unit_price: 30000, stock: 15, specs: { 'Capacity': '2000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/225972/1.jpg?5293' },
+    'Power Deluxe Stabilizer 1000Watts': { name: "Power Deluxe Stabilizer 1000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦25,000", unit_price: 25000, stock: 20, specs: { 'Capacity': '1000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/225972/1.jpg?5293' },
+    'OX Wall Fan': { name: "OX Wall Fan", description: "Wall-mounted fan with adjustable tilt", priceStr: "₦30,000", unit_price: 30000, stock: 11, specs: { 'Blade Size': '16 inch', 'Speeds': '3', 'Oscillation': 'Yes', 'Tilt Adjustment': 'Yes', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987981/1.jpg?9202' },
+    'OX Standing Fan': { name: "OX Standing Fan", description: "Adjustable-height standing fan", priceStr: "₦25,000", unit_price: 25000, stock: 20, specs: { 'Blade Size': '16 inch', 'Speeds': '3', 'Height Adjustment': 'Yes', 'Oscillation': 'Yes', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/23/987981/1.jpg?9202' },
+    'ORL Giant 62\' Ceiling Fan': { name: "ORL Giant 62'", description: "Quality ORL Ceiling Fan for home and office use", priceStr: "₦50,000", unit_price: 50000, stock: 7, specs: { 'Blade Size': '18 inch', 'Speeds': '3', 'Remote Control': 'Yes', 'Battery Capacity': '12 hours', 'Warranty': '1 year' }, image: 'https://th.bing.com/th/id/OIP.P813Fe5maQjXKGWnCM7ZbwHaHa?w=182&h=182&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1' },
+    'ORL Giant 60\' Ceiling Fan': { name: "ORL Giant 60'", description: "Quality ORL Ceiling Fan for home and office use", priceStr: "₦45,000", unit_price: 45000, stock: 9, specs: { 'Blade Size': '16 inch', 'Speeds': '3', 'Remote Control': 'Yes', 'Battery Capacity': '10 hours', 'Warranty': '1 year' }, image: 'https://tse3.mm.bing.net/th/id/OIP.hzbba50ZTX4hmAIiNZrGVgHaHa?rs=1&pid=ImgDetMain&o=7&rm=3' },
+    'SHURE Microphone': { name: "SHURE Microphone", description: "Professional wired microphone for vocals", priceStr: "₦45,000", unit_price: 45000, stock: 15, specs: { 'Type': 'Dynamic', 'Polar Pattern': 'Cardioid', 'Frequency Response': '50Hz-15kHz', 'Connector': 'XLR', 'Warranty': '2 years' }, image: 'https://ng.jumia.is/unsafe/fit-in/300x300/filters:fill(white)/product/75/8883251/1.jpg?8299' },
+    'Hisense Inverter Air Conditioner 2HP': { name: "Hisense Inverter Air Conditioner 2HP", description: "Energy-efficient inverter split AC unit", priceStr: "₦150,000", unit_price: 150000, stock: 5, specs: { 'Capacity': '2HP', 'Type': 'Inverter Split AC', 'Energy Rating': '5-star', 'Features': 'Auto restart, Sleep mode, Timer', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/86/5749811/1.jpg?9203' },
+    'Hisense Inverter Air Conditioner 1HP': { name: "Hisense Inverter Air Conditioner 1HP", description: "Energy-efficient inverter split AC unit", priceStr: "₦100,000", unit_price: 100000, stock: 8, specs: { 'Capacity': '1HP', 'Type': 'Inverter Split AC', 'Energy Rating': '5-star', 'Features': 'Auto restart, Sleep mode, Timer', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/86/5749811/1.jpg?9203' },
+    'Hisense Inverter Air Conditioner 1.5HP': { name: "Hisense Inverter Air Conditioner 1.5HP", description: "Energy-efficient inverter split AC unit", priceStr: "₦120,000", unit_price: 120000, stock: 6, specs: { 'Capacity': '1.5HP', 'Type': 'Inverter Split AC', 'Energy Rating': '5-star', 'Features': 'Auto restart, Sleep mode, Timer', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/86/5749811/1.jpg?9203' },
+    'Century Stabilizer 1000Watts': { name: "Century Stabilizer 1000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦25,000", unit_price: 25000, stock: 20, specs: { 'Capacity': '1000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://d21d281c1yd2en.cloudfront.net/media/product_images/stabilizers-century-century-automatic-voltage-stabilizer-1000va_1.0.webp' },
+    'Firman Stabilizer 2000Watts': { name: "Firman Stabilizer 2000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦30,000", unit_price: 30000, stock: 15, specs: { 'Capacity': '2000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://d21d281c1yd2en.cloudfront.net/media/product_images/firman-2000va-stabilizer-with-usb-port-fvr-2000_2.0.webp' },
+    'Firman Stabilizer 1000Watts': { name: "Firman Stabilizer 1000Watts", description: "Voltage stabilizer for home appliances", priceStr: "₦25,000", unit_price: 25000, stock: 20, specs: { 'Capacity': '1000 Watts', 'Input Voltage Range': '140V-260V', 'Output Voltage': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://www.sumecplaza.com/cdn/shop/products/Untitleddesign_45_1800x1800.png?v=1657022532' },
+    
     // Television models with specs and images
   
     "LG 32' LED television": { name: "LG 32' LED television", description: "32-inch LED TV — HDMI, USB, VGA; 720p HD", priceStr: '₦75,000', unit_price: 75000, stock: 6, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'No', 'HDMI Ports': '2', 'USB Ports': '1' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/64/0120121/1.jpg?0503' },
@@ -1537,7 +1584,14 @@ const productCatalog = {
     "Hisense 32' Smart Television": { name: "Hisense 32' Smart Television", description: "32-inch Smart TV — WiFi" , priceStr: '₦95,000', unit_price: 95000, stock: 4, specs: { 'Screen Size': '32 inch', 'Resolution': '1366x768 (HD)', 'Smart TV': 'Yes', 'WiFi': 'Built-in' }, image: 'https://www.laptopsdirect.co.uk/Images/32A4NTUK_1_Supersize.jpg?v=5' },
     "Hisense 43' Smart Television": { name: "Hisense 43' Smart Television", description: "43-inch Smart TV — Smart apps" , priceStr: '₦165,000', unit_price: 165000, stock: 3, specs: { 'Screen Size': '43 inch', 'Resolution': '1920x1080 (Full HD)', 'Smart TV': 'Yes' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/41/1976814/1.jpg?5522' },
     "Hisense 65' Smart Television": { name: "Hisense 65' Smart Television", description: "65-inch Smart TV — 4K" , priceStr: '₦550,000', unit_price: 550000, stock: 1, specs: { 'Screen Size': '65 inch', 'Resolution': '3840x2160 (4K)', 'Smart TV': 'Yes' }, image: 'https://s.alicdn.com/@sc04/kf/Hbb3047b72a444b5c8c27d2aa1883a148f.jpg_300x300.jpg' },
-    "Hisense 55' Smart Television": { name: "Hisense 55' Smart Television", description: "55-inch Smart TV — 4K" , priceStr: '₦380,000', unit_price: 380000, stock: 2, specs: { 'Screen Size': '55 inch', 'Resolution': '3840x2160 (4K)', 'Smart TV': 'Yes' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/05/951058/2.jpg?2473' }
+    "Hisense 55' Smart Television": { name: "Hisense 55' Smart Television", description: "55-inch Smart TV — 4K" , priceStr: '₦380,000', unit_price: 380000, stock: 2, specs: { 'Screen Size': '55 inch', 'Resolution': '3840x2160 (4K)', 'Smart TV': 'Yes' }, image: 'https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/05/951058/2.jpg?2473' },
+    "Firman Stabilizer 5000Watts": { name: "Firman Stabilizer 5000Watts", description: "Reliable 5000Watts Stabilizer for home and office use", priceStr: "₦60,000", unit_price: 60000, stock: 8, specs: { 'Capacity': '5000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://www.sumecplaza.com/cdn/shop/products/STABLIZER5000W_1800x1800.jpg?v=1649261921' },
+    "Century Stabilizer 2000Watts": { name: "Century Stabilizer 2000Watts", description: "Reliable 2000Watts Stabilizer for home and office use", priceStr: "₦35,000", unit_price: 35000, stock: 12, specs: { 'Capacity': '2000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://perfectmalls.com.ng/wp-content/uploads/2025/01/2-69.jpg' },
+    "Century Stabilizer 5000Watts": { name: "Century Stabilizer 5000Watts", description: "Reliable 5000Watts Stabilizer for home and office use", priceStr: "₦60,000", unit_price: 60000, stock: 8, specs: { 'Capacity': '5000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://ng.jumia.is/bwStb9-30hcpj0QUOrK84gVry_A=/fit-in/500x500/filters:fill(white)/product/63/7496662/1.jpg?1547' },
+    "Dura Volt Stabilizer 1000Watts": { name: "Dura Volt Stabilizer 1000Watts", description: "Reliable 1000Watts Stabilizer for home and office use", priceStr: "₦25,000", unit_price: 25000, stock: 15, specs: { 'Capacity': '1000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://tobuy.ng/sites/default/files/products/download%20-%202022-12-09T172537.513.jpg' },
+    "Dura Volt Stabilizer 2000Watts": { name: "Dura Volt Stabilizer 2000Watts", description: "Reliable 2000Watts Stabilizer for home and office use", priceStr: "₦40,000", unit_price: 40000, stock: 11, specs: { 'Capacity': '2000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://www-konga-com-res.cloudinary.com/w_auto,f_auto,fl_lossy,dpr_auto,q_auto/media/catalog/product/H/X/119570_1669205609.jpg' },
+    "Dura Volt Stabilizer 5000Watts": { name: "Dura Volt Stabilizer 5000Watts", description: "Reliable 5000Watts Stabilizer for home and office use", priceStr: "₦70,000", unit_price: 70000, stock: 7, specs: { 'Capacity': '5000 Watts', 'Input Range': '140V-260V', 'Output': '220V ± 10%', 'Type': 'Automatic', 'Warranty': '1 year' }, image: 'https://tse2.mm.bing.net/th/id/OIP.GJgoTg-o5f1OFM8dWxQwwgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3' },
+    "Century Rechargeable Standing Fan": { name: "Century Rechargeable Standing Fan", description: "Battery powered standing fans — portable and efficient", priceStr: "₦40,000", unit_price: 40000, stock: 10, specs: { 'Blade Size': '16 inch', 'Speeds': '3', 'Battery Life': '8-10 hours', 'Oscillation': 'Yes', 'Warranty': '1 year' }, image: 'https://th.bing.com/th/id/OIP.OR4v9AExTZxx2nAPrVKaWgHaHa?w=188&h=188&c=7&r=0&o=7&cb=ucfimg2&pid=1.7&rm=3&ucfimg=1' }
 };
 
 // Helper to get product details by key (variant name or catalog title)
@@ -1724,7 +1778,114 @@ window.addEventListener('click', function(e) {
 
 // -------------------- Cart (fully functional) --------------------
 let cart = JSON.parse(localStorage.getItem('cart')) || {};
+let favorites = JSON.parse(localStorage.getItem('favorites')) || {};
 updateCartCount();
+
+// ========== FAVORITES MANAGEMENT ==========
+function toggleFavorite(productKey) {
+  if (!productKey || productKey.trim() === '') return;
+  
+  const key = productKey.trim();
+  if (favorites[key]) {
+    delete favorites[key];
+    showNotification(`${key} removed from favorites.`, 'info');
+  } else {
+    const details = getProductDetails(key);
+    favorites[key] = {
+      name: key,
+      price: details.unit_price,
+      image: details.image,
+      description: details.description,
+      addedAt: new Date().toISOString()
+    };
+    showNotification(`${key} added to favorites!`, 'success');
+  }
+  
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+  updateFavoriteStars();
+}
+
+function isFavorite(productKey) {
+  return !!favorites[productKey];
+}
+
+function updateFavoriteStars() {
+  // Update all star buttons to show their current state
+  document.querySelectorAll('.product-card').forEach(card => {
+    const starBtn = card.querySelector('.favorite-star');
+    if (starBtn) {
+      const title = card.querySelector('h3')?.textContent.trim() || '';
+      if (isFavorite(title)) {
+        starBtn.classList.add('favorited');
+        starBtn.textContent = '⭐';
+      } else {
+        starBtn.classList.remove('favorited');
+        starBtn.textContent = '☆';
+      }
+    }
+  });
+}
+
+function addFavoriteStarToProducts() {
+  // Add star button to each product card
+  document.querySelectorAll('.product-card').forEach(card => {
+    if (card.querySelector('.favorite-star')) return; // Already has one
+    
+    const starBtn = document.createElement('button');
+    starBtn.className = 'favorite-star';
+    starBtn.type = 'button';
+    starBtn.textContent = '☆';
+    starBtn.style.cssText = `
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 200ms ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    
+    starBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const title = card.querySelector('h3')?.textContent.trim() || '';
+      if (title) {
+        toggleFavorite(title);
+        // Add animation class
+        starBtn.classList.add('clicked');
+        // Remove class after animation completes to allow re-triggering
+        setTimeout(() => {
+          starBtn.classList.remove('clicked');
+        }, 600);
+      }
+    });
+    
+    starBtn.addEventListener('mouseenter', () => {
+      starBtn.style.background = 'rgba(255,193,7,0.3)';
+      starBtn.style.transform = 'scale(1.1)';
+    });
+    
+    starBtn.addEventListener('mouseleave', () => {
+      starBtn.style.background = 'rgba(255,255,255,0.9)';
+      starBtn.style.transform = 'scale(1)';
+    });
+    
+    const productImage = card.querySelector('.product-image');
+    if (productImage) {
+      productImage.style.position = 'relative';
+      productImage.appendChild(starBtn);
+    }
+  });
+  
+  updateFavoriteStars();
+}
 
 function addToCart(productKey) {
     const key = productKey.trim();
@@ -1798,6 +1959,9 @@ function showCart() {
             itemDiv.className = 'cart-item';
             const incDisabled = (typeof details.stock === 'number' && quantity >= details.stock) ? 'disabled' : '';
             itemDiv.innerHTML = `
+                <div class="cart-item-image">
+                    <img src="${details.image || 'https://via.placeholder.com/80?text=Product'}" alt="${details.name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 6px;">
+                </div>
                 <div class="cart-item-details">
                     <h4>${details.name}</h4>
                     <p>${details.description || ''}</p>
@@ -1817,16 +1981,137 @@ function showCart() {
 
     document.getElementById('cart-total').textContent = `Total: ${formatPrice(total)}`;
 
-    // Enable/disable the PAY NOW button depending on cart contents
+    // Enable/disable the CHECKOUT NOW button depending on cart contents
     const cartPayBtn = document.getElementById('cart-pay-btn');
     if (cartPayBtn) {
         if (total <= 0) {
             cartPayBtn.disabled = true;
         } else {
             cartPayBtn.disabled = false;
-            cartPayBtn.textContent = 'PAY NOW';
+            cartPayBtn.textContent = 'CHECKOUT NOW';
         }
     }
+
+    // Add checkout section above favorites (total + button)
+    const checkoutSection = document.createElement('div');
+    checkoutSection.style.cssText = `
+      margin-top: 20px;
+      padding: 15px;
+      background: linear-gradient(180deg, rgba(255,193,7,0.05) 0%, rgba(255,193,7,0.02) 100%);
+      border-radius: 8px;
+      border: 1px solid rgba(255,193,7,0.2);
+    `;
+    checkoutSection.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 16px; font-weight: bold; color: #333;">Cart Total:</span>
+        <span style="font-size: 20px; font-weight: bold; color: #ff6b6b;">${formatPrice(total)}</span>
+      </div>
+      <button id="checkout-btn-inline" style="
+        width: 100%;
+        padding: 12px 16px;
+        background: linear-gradient(180deg, #FFD54A 0%, #F0C419 100%);
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #111;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(255,193,7,0.2);
+      ">CHECKOUT NOW</button>
+    `;
+    
+    // Link the inline button to the hidden cart pay button's functionality
+    const checkoutBtnInline = checkoutSection.querySelector('#checkout-btn-inline');
+    if (checkoutBtnInline && cartPayBtn) {
+      checkoutBtnInline.addEventListener('click', () => cartPayBtn.click());
+      // Sync disabled state
+      if (total <= 0) {
+        checkoutBtnInline.disabled = true;
+        checkoutBtnInline.style.opacity = '0.6';
+        checkoutBtnInline.style.cursor = 'not-allowed';
+      }
+    }
+    
+    cartItems.appendChild(checkoutSection);
+
+    // Add favorites section below checkout
+    const favoritesSection = document.createElement('div');
+    favoritesSection.style.cssText = `
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 2px solid rgba(0,0,0,0.1);
+    `;
+    favoritesSection.innerHTML = '<h3 style="margin-bottom: 15px;">💖 Favorites</h3>';
+    
+    if (Object.keys(favorites).length === 0) {
+      favoritesSection.innerHTML += '<p style="color: #999; font-size: 14px;">No favorites yet. Click the ⭐ icon on any product to add it here.</p>';
+    } else {
+      const favGrid = document.createElement('div');
+      favGrid.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+      `;
+      
+      for (const productKey in favorites) {
+        const fav = favorites[productKey];
+        const favCard = document.createElement('div');
+        favCard.style.cssText = `
+          border: 1px solid rgba(0,0,0,0.1);
+          border-radius: 8px;
+          padding: 10px;
+          text-align: center;
+          background: #f9f9f9;
+          cursor: pointer;
+          transition: all 150ms ease;
+        `;
+        
+        favCard.innerHTML = `
+          <div style="font-size: 12px; color: #666; margin-bottom: 8px; word-break: break-word;">${productKey}</div>
+          <div style="font-weight: bold; margin-bottom: 8px; color: #ff6b6b;">${fav.price ? formatPrice(fav.price) : 'N/A'}</div>
+          <button onclick="addToCart('${escapeForJs(productKey)}')" style="
+            background: linear-gradient(180deg, #FFD54A 0%, #F0C419 100%);
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #111;
+            width: 100%;
+            margin-bottom: 6px;
+          ">Add to Cart</button>
+          <button onclick="toggleFavorite('${escapeForJs(productKey)}')" style="
+            background: transparent;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            width: 100%;
+          ">Remove ✕</button>
+        `;
+        
+        favCard.addEventListener('mouseenter', () => {
+          favCard.style.background = '#fff';
+          favCard.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+          favCard.style.transform = 'translateY(-2px)';
+        });
+        
+        favCard.addEventListener('mouseleave', () => {
+          favCard.style.background = '#f9f9f9';
+          favCard.style.boxShadow = 'none';
+          favCard.style.transform = 'translateY(0)';
+        });
+        
+        favGrid.appendChild(favCard);
+      }
+      
+      favoritesSection.appendChild(favGrid);
+    }
+    
+    cartItems.appendChild(favoritesSection);
 
     document.getElementById('cart-modal').style.display = 'block';
 }

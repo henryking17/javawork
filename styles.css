@@ -106,70 +106,7 @@ header .container {
 }
 
 /* Keyframes for heading animation */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-        transform: translateX(-50px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes bounceIn {
-    0% {
-        opacity: 0;
-        transform: scale(0.3);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-    70% {
-        transform: scale(0.9);
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes borderGlow {
-    0% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-    100% {
-        background-position: 0% 50%;
-    }
-}
-
-@keyframes iconPulse {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-        text-shadow: 0 0 10px #ff6b6b, 0 0 20px #dc143c;
-    }
-    50% {
-        transform: scale(1.1);
-        opacity: 0.8;
-        text-shadow: 0 0 15px #ff6b6b, 0 0 30px #dc143c, 0 0 40px #ff6b6b;
-    }
-}
 
 nav ul {
     display: flex;
@@ -325,7 +262,7 @@ nav ul.show {
     -webkit-user-select: none;
     -moz-user-select: none;
     user-select: none;
-    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: blurred;
     touch-action: manipulation;
     min-width: 48px;
     min-height: 48px;
@@ -335,7 +272,7 @@ nav ul.show {
 }
 
 .hamburger:hover {
-    color: #ff6b6b;
+    color: black;
     background-color: rgba(255, 107, 107, 0.08);
 }
 
@@ -347,13 +284,7 @@ nav ul.show {
     animation: cartBounce 0.6s ease;
 }
 
-@keyframes cartBounce {
-    0% { transform: scale(1); }
-    25% { transform: scale(1.2); }
-    50% { transform: scale(0.9); }
-    75% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
+
 
 /* Hero section */
 .hero {
@@ -1107,9 +1038,29 @@ nav ul.show {
 .cart-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 12px;
     padding: 1rem;
     border-bottom: 1px solid #ddd;
+    background: #fafafa;
+}
+
+.cart-item-image {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+}
+
+.cart-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.cart-item-details {
+    flex: 1;
+    min-width: 0;
 }
 
 .cart-item-details h4 {
@@ -1121,6 +1072,13 @@ nav ul.show {
     margin: 0.3rem 0;
     color: #666;
     font-size: 0.9rem;
+}
+
+.stock-remaining {
+    display: block;
+    font-size: 0.85rem;
+    color: #27ae60;
+    margin: 0.3rem 0;
 }
 
 .cart-item-price {
@@ -1683,11 +1641,12 @@ nav ul.show {
 
 /* Toast notifications — modern success / error toasts */
 
-/* Container sits in top-right */
+/* Container sits in top-center */
 .toast-container {
   position: fixed;
   top: 18px;
-  right: 18px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2194,6 +2153,31 @@ nav ul.show {
     box-shadow: 0 4px 12px rgba(255,107,107,0.10), 0 0 6px rgba(255,203,107,0.06);
     text-shadow: 0 0 6px rgba(255,107,107,0.20);
   }
+}
+
+@keyframes starGlow {
+  0%, 100% {
+    box-shadow: 0 0 0px rgba(255, 215, 0, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 165, 0, 0.6);
+  }
+}
+
+@keyframes starBounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.favorite-star.clicked {
+  animation: starGlow 0.6s ease-out, starBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Respect users who prefer reduced motion */

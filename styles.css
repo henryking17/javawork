@@ -240,11 +240,67 @@ nav ul.show {
     z-index: 1002;
 }
 
+/* Notifications UI removed */
+
+/* Notifications dropdown (hidden by default, shown when .open is added) */
+.dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    background: white;
+    color: #111;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    min-width: 260px;
+    z-index: 1000;
+    box-shadow: 0 8px 28px rgba(16,24,40,0.08);
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+    transition: opacity 260ms cubic-bezier(.2,.9,.2,1), transform 260ms cubic-bezier(.2,.9,.2,1);
+    overflow: hidden;
+}
+.dropdown.open {
+    display: block;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.dropdown.auto-open {
+    animation: notifPop 520ms cubic-bezier(.2,.9,.2,1);
+}
+@keyframes notifPop {
+    0% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    60% { opacity: 1; transform: translateY(4px) scale(1.02); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dropdown .loading { text-align: center; padding: 14px 6px; color: #6b7280; }
+.dropdown .item { display:flex; gap:12px; align-items:flex-start; padding:12px; border-bottom:1px solid #f3f4f6; cursor: pointer; transition: background-color 140ms ease, transform 140ms ease; }
+.dropdown .item:hover { background: #f8fafc; }
+.dropdown .item.unread { background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(59,130,246,0.02)); border-left: 4px solid #3b82f6; padding-left:10px; }
+.dropdown .item .title { font-weight:700; color:#111; font-size:0.95rem; }
+.dropdown .item .meta { color:#6b7280; font-size:0.78rem; margin-top:4px; }
+.dropdown .item .excerpt { color:#374151; font-size:0.9rem; margin-top:8px; line-height:1.2; max-height:2.6em; overflow:hidden; text-overflow:ellipsis; }
+.dropdown .chev { color:#9ca3af; font-size:18px; align-self:center; margin-left:8px; }
+.dropdown .footer { padding:8px 10px; text-align:center; background:#fafafa; }
+.dropdown .footer a { color:#3b82f6; text-decoration:none; font-weight:600; }
+.dropdown .empty { padding:14px; color:#6b7280; text-align:center; }
+
+/* Pulse on the bell to draw attention when auto-open happens */
+#custNotifAnchor.pulse { animation: bellPulse 900ms cubic-bezier(.2,.9,.2,1); }
+@keyframes bellPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* Product highlight for direct navigation from notifications */
+.product-card.highlight { box-shadow: 0 8px 28px rgba(20,60,120,0.12); transform: translateY(-4px); border-radius: 8px; transition: box-shadow .25s ease, transform .25s ease; }
+.product-card.highlight::after { content: ''; display: block; height: 4px; background: linear-gradient(90deg,#ffb347,#ffcc33); border-radius: 2px; margin-top: 8px; }
+
 .cart-icon:hover {
     color: #ff6b6b;
     transform: translateY(-1px);
     background: rgba(255,107,107,0.06);
-}
+} 
 
 #cart-count {
     background: #e74c3c;
@@ -2149,10 +2205,6 @@ nav ul.show {
 }
 #receipt-content h3 { margin-top: 0; margin-bottom: 8px; }
 #receipt-content table th, #receipt-content table td { border-bottom: 1px solid #eee; padding: 8px; }
-6,24,40,0.04);
-  margin-top: 8px;
-  transition: all 180ms ease;
-}
 
 /* Small helper to visually separate the summary and details on expand */
 .receipt-card .receipt-summary {

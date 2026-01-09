@@ -571,11 +571,9 @@
           loginTime: new Date().toISOString()
         };
         
-        // Save customer notification with their user ID
+        // Save customer notification with their user ID - replace any existing notifications so only welcome remains
         customerNotif.userId = newUser.id;
-        let customerNotifications = JSON.parse(localStorage.getItem('customer_notifications_' + newUser.id) || '[]');
-        customerNotifications.unshift(customerNotif);
-        localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify(customerNotifications));
+        localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify([customerNotif]));
         
         sessionStorage.setItem('currentUser', JSON.stringify(userSession));
 

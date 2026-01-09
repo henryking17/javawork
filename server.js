@@ -1,11 +1,13 @@
 // server.js
 const express = require("express");
 const axios = require("axios");
+const cors = require('cors');
 require("dotenv").config();
 const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(express.json());
+app.use(cors()); // enable CORS for dev and client pages
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -111,6 +113,8 @@ app.post('/newsletter-subscribe', async (req, res) => {
   }
 });
 
+// Notifications feature removed: endpoints and file-backed store deleted to simplify the app.
+// If you later want notifications back, re-add a minimal API and a JSON store file.
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

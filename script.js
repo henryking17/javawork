@@ -6,7 +6,8 @@ function initializeUserSession() {
   const dropdownMenu = document.querySelector('.dropdown-menu');
   const signInLink = document.querySelector('.dropdown-signin');
   const logoutBtn = document.querySelector('.dropdown-logout');
-  const custNotifLink = document.getElementById('customerNotifLink');
+  // Anchor in index.html is 'custNotifAnchor'
+  const custNotifLink = document.getElementById('custNotifAnchor');
   const receiptsSection = document.getElementById('receipts');
   
   if (currentUser && accountLink) {
@@ -17,10 +18,34 @@ function initializeUserSession() {
     if (signInLink) signInLink.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = 'block';
     
-    // Show customer notifications link
+    // Show customer notifications link and display combined unread (personal + broadcasts)
     if (custNotifLink) {
       custNotifLink.style.display = 'block';
+      // Ensure welcome notification exists for this user; open dropdown on first login
+      const createdWelcome = ensureWelcomeNotification(currentUser);
       updateCustomerNotificationsBadge();
+      // merge broadcast counts into badge if broadcasts exist
+      fetchBroadcastCount().then(broadcastCount => {
+        const notifications = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
+        const personalUnread = notifications.filter(n => !n.read).length;
+        const combined = personalUnread + (broadcastCount || 0);
+        const badge = document.getElementById('custNotifBadge');
+        if (badge) {
+          if (combined > 0) { badge.textContent = combined > 9 ? '9+' : combined; badge.style.display = 'flex'; }
+          else { badge.style.display = 'none'; }
+        }
+      });
+
+      try {
+        const shownKey = 'welcome_shown_' + currentUser.id;
+        if (createdWelcome && !localStorage.getItem(shownKey)) {
+          // mark as shown so we don't auto-open again for this user
+          localStorage.setItem(shownKey, '1');
+          const anchorEl = document.getElementById('custNotifAnchor');
+          if (anchorEl) { anchorEl.classList.add('pulse'); setTimeout(() => { try { anchorEl.classList.remove('pulse'); } catch(e){} }, 900); }
+          setTimeout(() => { try { toggleNotificationsDropdown(true); } catch(e){} }, 300);
+        }
+      } catch (e) { /* ignore */ }
     }
 
     // Show receipts section for logged-in users
@@ -35,7 +60,7 @@ function initializeUserSession() {
     if (signInLink) signInLink.style.display = 'block';
     if (logoutBtn) logoutBtn.style.display = 'none';
     
-    // Hide customer notifications link if not logged in
+    // Hide notifications for guests (only logged-in users can access notifications)
     if (custNotifLink) {
       custNotifLink.style.display = 'none';
     }
@@ -45,6 +70,11 @@ function initializeUserSession() {
       receiptsSection.style.display = 'none';
     }
   }
+
+  // Update admin notifications badge
+  updateNotificationsBadge();
+  
+  // Setup dropdown menu toggle or direct logout
 
   // Update admin notifications badge
   updateNotificationsBadge();
@@ -82,24 +112,274 @@ function initializeUserSession() {
   }
 }
 
-// Update customer notifications badge count
+// Update the customer notification badge by combining personal unread items with cached broadcast count (resilient to transient fetch failures)
 function updateCustomerNotificationsBadge() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-  if (!currentUser) return;
-
-  const notifications = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
-  const unreadCount = notifications.filter(n => !n.read).length;
   const badge = document.getElementById('custNotifBadge');
-  
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+  if (!badge) return;
+
+  // If no logged-in user, we rely on broadcast count to decide visibility
+  if (!currentUser) {
+    if (_lastBroadcastCount && _lastBroadcastCount > 0) {
+      badge.textContent = _lastBroadcastCount > 9 ? '9+' : _lastBroadcastCount;
       badge.style.display = 'flex';
     } else {
       badge.style.display = 'none';
     }
+    return;
   }
+
+  const notifications = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
+  const personalUnread = notifications.filter(n => !n.read).length;
+  const combined = personalUnread + (_lastBroadcastCount || 0);
+
+  if (combined > 0) { badge.textContent = combined > 9 ? '9+' : combined; badge.style.display = 'flex'; }
+  else { badge.style.display = 'none'; }
 }
+
+// Ensure a welcome notification exists for a logged-in user (only created once)
+function ensureWelcomeNotification(user) {
+  try {
+    if (!user || !user.id) return false;
+    const key = 'customer_notifications_' + user.id;
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const already = list.find(n => n && n.type === 'welcome');
+    if (already) return false;
+
+    const welcome = {
+      id: 'welcome-' + Date.now(),
+      title: 'Welcome to Cympet Electronics Store',
+      message: 'Welcome to Cympet Electronics Store — thanks for joining. Check out our featured products and deals!',
+      timestamp: Date.now(),
+      read: false,
+      type: 'welcome'
+    };
+    // Prepend so it appears first
+    list.unshift(welcome);
+    localStorage.setItem(key, JSON.stringify(list));
+    // update badge immediately
+    updateCustomerNotificationsBadge();
+    return true;
+  } catch (e) { return false; }
+}
+
+// Fetch count of public broadcasts (unread) and update the header badge and visibility
+async function fetchBroadcastCount() {
+  try {
+    const res = await fetch('http://localhost:5000/api/notifications?status=unread');
+    if (!res.ok) return 0;
+    const j = await res.json();
+    const count = (j && j.notifications) ? j.notifications.length : 0;
+    const badge = document.getElementById('custNotifBadge');
+    const link = document.getElementById('customerNotifLink');
+
+    if (count > 0) {
+      _consecutiveZeroBroadcasts = 0;
+      _lastBroadcastCount = count;
+      if (badge) { badge.textContent = count > 9 ? '9+' : count; badge.style.display = 'flex'; }
+      if (link) { link.style.display = 'block'; }
+    } else {
+      _consecutiveZeroBroadcasts++;
+      // Require two consecutive empty responses before hiding badge to avoid flashes
+      if (_consecutiveZeroBroadcasts >= 2) {
+        _lastBroadcastCount = 0;
+        if (badge) { badge.style.display = 'none'; }
+        if (link) { link.style.display = 'none'; }
+      } else {
+        // keep previous badge visible while we're waiting for confirmation
+        if (_lastBroadcastCount && badge) { badge.textContent = _lastBroadcastCount > 9 ? '9+' : _lastBroadcastCount; badge.style.display = 'flex'; }
+      }
+    }
+
+    return count;
+  } catch (e) {
+    // On fetch error, preserve last known state
+    return 0;
+  }
+} 
+
+// --- Header notifications dropdown ---
+let _notifDropdownVisible = false;
+let _notifOutsideClickHandler = null;
+let _notifEscHandler = null;
+// Persistent state to avoid transient flashes and cache recent results
+let _lastBroadcastCount = null;
+let _consecutiveZeroBroadcasts = 0;
+let _lastDropdownItems = []; 
+
+async function fetchNotificationsForDropdown(limit = 6) {
+  try {
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    const userId = currentUser ? currentUser.id : null;
+    const url = 'http://localhost:5000/api/notifications?limit=' + encodeURIComponent(limit) + (userId ? '&userId=' + encodeURIComponent(userId) : '');
+    const res = await fetch(url);
+    if (!res.ok) return _lastDropdownItems.slice();
+    const j = await res.json();
+    const items = Array.isArray(j.notifications) ? j.notifications : [];
+    if (items.length > 0) _lastDropdownItems = items.slice();
+    // Return fetched items if present, otherwise return cached items
+    return items.length ? items : _lastDropdownItems.slice();
+  } catch (e) { return _lastDropdownItems.slice(); }
+} 
+
+function renderNotifDropdown(items) {
+  const container = document.getElementById('notifDropdown');
+  if (!container) return;
+  const inner = container.querySelector('.dropdown-inner');
+  if (!items || !items.length) {
+    if (inner) {
+      inner.innerHTML = '<div class="empty">No notifications</div><div class="footer"><a href="notifications.html">Read all</a></div>';
+      // Attach handler to footer Read all link
+      try {
+        const footerLink = container.querySelector('.footer a');
+        if (footerLink) {
+          footerLink.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            await markAllNotificationsRead();
+            try { showNotificationsDropdown(true); } catch(e) {}
+            showNotification('All notifications marked read.', 'success');
+          });
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return;
+  }
+  if (inner) inner.innerHTML = items.map(n => {
+    const ts = n.timestamp ? new Date(n.timestamp).toLocaleString() : '';
+    const readClass = n.read ? 'read' : 'unread';
+    const excerpt = (n.body || n.message || '').replace(/\n/g,' ').slice(0,140);
+    const href = n.link ? n.link : 'notifications.html';
+    return `<div class="item ${readClass}" data-id="${n.id}" data-href="${escapeHtml(href)}" role="button" tabindex="0">
+      <div style="flex:1">
+        <div class="title">${escapeHtml(n.title || '')}</div>
+        <div class="meta">${escapeHtml(ts)}</div>
+        <div class="excerpt">${escapeHtml(excerpt)}</div>
+      </div>
+      <div class="chev">›</div>
+    </div>`;
+  }).join('') + '<div class="footer"><a href="notifications.html">Read all</a></div>';
+
+  // Attach Read all click handler
+  try {
+    const footerLink = container.querySelector('.footer a');
+    if (footerLink) {
+      footerLink.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        await markAllNotificationsRead();
+        try { showNotificationsDropdown(true); } catch (e) {}
+        showNotification('All notifications marked read.', 'success');
+      });
+    }
+  } catch (e) { /* ignore */ }
+
+  // make each item clickable (whole row) and keyboard-accessible
+  container.querySelectorAll('.item').forEach(itemEl => {
+    const handler = async (ev) => {
+      // prevent double handling when internal buttons are clicked
+      if (ev.target && ev.target.closest && ev.target.closest('button')) return;
+      const href = itemEl.getAttribute('data-href');
+      const id = itemEl.getAttribute('data-id');
+
+      // mark read server-side (best effort)
+      if (id) {
+        try { await fetch('http://localhost:5000/api/notifications/' + encodeURIComponent(id) + '/read', { method: 'POST' }); } catch (e) { /* ignore */ }
+      }
+
+      // mark local copy as read if present
+      try {
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+        if (currentUser && currentUser.id && id) {
+          const key = 'customer_notifications_' + currentUser.id;
+          const arr = JSON.parse(localStorage.getItem(key) || '[]');
+          const found = arr.find(x => x.id === id);
+          if (found && !found.read) { found.read = true; localStorage.setItem(key, JSON.stringify(arr)); updateCustomerNotificationsBadge(); }
+        }
+      } catch (e) { /* ignore */ }
+
+      // navigate in current tab
+      try { window.location.href = itemEl.getAttribute('data-href') || 'notifications.html'; } catch(e) { window.open(itemEl.getAttribute('data-href') || 'notifications.html', '_blank'); }
+
+      // close dropdown
+      hideNotificationsDropdown();
+    };
+
+    itemEl.addEventListener('click', handler);
+    itemEl.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { handler(ev); ev.preventDefault(); } });
+  });
+}
+
+function showNotificationsDropdown(autoOpen = false) {
+  const container = document.getElementById('notifDropdown');
+  const anchor = document.getElementById('custNotifAnchor');
+  if (!container || !anchor) return;
+  // use CSS class to show
+  container.classList.add('open');
+  if (autoOpen) {
+    container.classList.add('auto-open');
+    // remove the animation helper after it finishes
+    setTimeout(() => { try { container.classList.remove('auto-open'); } catch(e){} }, 800);
+  }
+  container.setAttribute('aria-hidden', 'false');
+  anchor.setAttribute('aria-expanded', 'true');
+  _notifDropdownVisible = true;
+
+  // show a loading indicator and fetch items; include personal notifications from localStorage
+  const inner = container.querySelector('.dropdown-inner');
+  if (inner) inner.innerHTML = '<div class="loading">Loading…</div>';
+  fetchNotificationsForDropdown(12).then(items => {
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    let personal = [];
+    if (currentUser && currentUser.id) {
+      personal = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
+    }
+    // Combine server items (broadcasts/personal) with local personal items; local items take precedence
+    const map = Object.create(null);
+    (items.concat(personal)).forEach(n => { if (n && n.id) map[n.id] = Object.assign({}, map[n.id] || {}, n); });
+    const merged = Object.values(map).sort((a,b) => (b.timestamp||0) - (a.timestamp||0)).slice(0,6);
+    renderNotifDropdown(merged);
+
+
+  });
+
+  // outside click handler
+  _notifOutsideClickHandler = (ev) => {
+    if (!ev.target.closest('#notifDropdown') && ev.target !== anchor && !ev.target.closest('#custNotifAnchor')) {
+      toggleNotificationsDropdown(false);
+    }
+  };
+  document.addEventListener('click', _notifOutsideClickHandler);
+
+  // ESC to close
+  _notifEscHandler = (ev) => { if (ev.key === 'Escape' || ev.key === 'Esc') toggleNotificationsDropdown(false); };
+  document.addEventListener('keydown', _notifEscHandler);
+}
+
+function hideNotificationsDropdown() {
+  const container = document.getElementById('notifDropdown');
+  const anchor = document.getElementById('custNotifAnchor');
+  if (!container || !anchor) return;
+  container.classList.remove('open');
+  container.classList.remove('auto-open');
+  container.setAttribute('aria-hidden', 'true');
+  anchor.setAttribute('aria-expanded', 'false');
+  _notifDropdownVisible = false;
+  if (_notifOutsideClickHandler) { document.removeEventListener('click', _notifOutsideClickHandler); _notifOutsideClickHandler = null; }
+  if (_notifEscHandler) { document.removeEventListener('keydown', _notifEscHandler); _notifEscHandler = null; }
+} 
+
+function toggleNotificationsDropdown(forceRefresh = false) {
+  if (_notifDropdownVisible && !forceRefresh) { hideNotificationsDropdown(); return; }
+  showNotificationsDropdown(forceRefresh);
+} 
+
+// wire up anchor click
+document.addEventListener('DOMContentLoaded', () => {
+  const anchor = document.getElementById('custNotifAnchor');
+  if (anchor) {
+    anchor.addEventListener('click', (ev) => { ev.preventDefault(); toggleNotificationsDropdown(); });
+  }
+});
+
 
 // Update admin notifications badge count
 function updateNotificationsBadge() {
@@ -120,11 +400,13 @@ function updateNotificationsBadge() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initializeUserSession);
 
-// Update badges every 3 seconds
+// Update badges every 5 seconds (skip when tab is hidden)
 setInterval(() => {
+  if (document.hidden) return;
   updateNotificationsBadge();
   updateCustomerNotificationsBadge();
-}, 3000);
+  fetchBroadcastCount();
+}, 5000);
 
 // Show notification if login/signup was successful
 window.addEventListener('load', function() {
@@ -133,6 +415,12 @@ window.addEventListener('load', function() {
     const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
     if (currentUser) {
       showNotification(`Welcome back, ${currentUser.name}!`, 'success');
+
+      // Reset this user's notifications to only a welcome message
+      try {
+        resetNotificationsToWelcome(currentUser);
+      } catch (e) { console.error('Failed to reset notifications for user', e); }
+
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -140,6 +428,12 @@ window.addEventListener('load', function() {
     const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
     if (currentUser) {
       showNotification(`Welcome, ${currentUser.name}! Your account has been created.`, 'success');
+
+      // Ensure only welcome notification exists after signup
+      try {
+        resetNotificationsToWelcome(currentUser);
+      } catch (e) { console.error('Failed to set welcome notification for new user', e); }
+
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -479,6 +773,10 @@ function savePaidOrder(order) {
     const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
     paidOrders.push(order);
     localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+
+    // Create a receipt notification for the user (so it appears in the dropdown)
+    try { addReceiptNotification(order, 'paid'); } catch (e) { console.error('Failed to create receipt notification', e); }
+
   } catch (e) {
     console.error('Error saving paid order locally', e);
   }
@@ -489,10 +787,124 @@ function saveCODOrder(order) {
     const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
     codOrders.push(order);
     localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+
+    // Add a receipt/confirmation notification for COD orders as well
+    try { addReceiptNotification(order, 'cod'); } catch (e) { console.error('Failed to create COD receipt notification', e); }
+
   } catch (e) {
     console.error('Error saving COD order locally', e);
   }
 }
+
+// Add a helper to create a receipt notification for a user so it appears in their notifications dropdown
+function addReceiptNotification(order, kind = 'paid') {
+  try {
+    if (!order) return;
+    const uid = order.userId || (JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).id || (JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).email;
+    if (!uid) return; // cannot attach to anonymous user
+
+    const key = 'customer_notifications_' + uid;
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+
+    const title = (kind === 'paid') ? `Receipt: ${order.orderId || order.payment_reference || ''}` : `Order confirmed: ${order.orderId || ''}`;
+    const amount = order.total || order.payment_total || '';
+    const message = (kind === 'paid') ? `Payment received ${amount ? '• ' + amount : ''}. Click to view your receipt.` : `Order received ${amount ? '• ' + amount : ''}. Click to view details.`;
+    const notif = {
+      id: 'receipt-' + (order.orderId || order.payment_reference || Math.floor(Math.random() * 1000000)),
+      title: title,
+      message: message,
+      timestamp: Date.now(),
+      read: false,
+      type: 'receipt',
+      link: `receipt.html?orderId=${encodeURIComponent(order.orderId || order.payment_reference || '')}`
+    };
+
+    // Prepend so newest receipts show first
+    list.unshift(notif);
+    localStorage.setItem(key, JSON.stringify(list));
+
+    // Update badge and refresh dropdown if open
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    try { if (_notifDropdownVisible) toggleNotificationsDropdown(true); } catch (e) {}
+  } catch (e) {
+    console.error('Error creating receipt notification', e);
+  }
+}
+
+// Add helper to post a price increase notification for a product (per-user localStorage)
+function addPriceIncreaseNotification(productName, oldPrice, newPrice, userId) {
+  try {
+    const uid = userId || ((JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).id || (JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).email);
+    if (!uid) {
+      console.warn('No logged-in user found — price notification not added.');
+      return false;
+    }
+    const key = 'customer_notifications_' + uid;
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+
+    const title = `Price change: ${productName}`;
+    const message = `Price increased from ${oldPrice} to ${newPrice} for ${productName}. Click to view.`;
+    // avoid duplicate notifications for the same product + price
+    const exists = list.find(n => n && n.type === 'price-change' && n.product === productName && n.message === message);
+    if (exists) return false;
+
+    const targetHash = '#product=' + encodeURIComponent(productName);
+    const notif = {
+      id: 'price-' + Date.now(),
+      title: title,
+      message: message,
+      timestamp: Date.now(),
+      read: false,
+      type: 'price-change',
+      product: productName,
+      oldPrice: oldPrice,
+      newPrice: newPrice,
+      link: 'index.html' + targetHash // link to products section and product name via hash
+    };
+
+    list.unshift(notif);
+    localStorage.setItem(key, JSON.stringify(list));
+
+    // Update badge and refresh dropdown if open
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    try { if (_notifDropdownVisible) toggleNotificationsDropdown(true); } catch (e) {}
+
+    return true;
+  } catch (e) { console.error('Error adding price notification', e); return false; }
+}
+
+// Ensure price notification uses the canonical product name and migrate legacy notifications to match
+try {
+  const canonicalName = 'Sumec Firman Generator SPG3000 Manual';
+  addPriceIncreaseNotification(canonicalName, '₦120,000', '₦150,000');
+
+  // Migrate any legacy price notifications referencing older/short names (e.g., 'SPG3000')
+  (function migrateLegacySPG3000() {
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+      const uid = currentUser && (currentUser.id || currentUser.email);
+      if (!uid) return;
+      const key = 'customer_notifications_' + uid;
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      let changed = false;
+      arr.forEach(n => {
+        if (!n) return;
+        const looksLikeSPG = (n.product && n.product.indexOf('SPG3000') !== -1) || (n.title && n.title.indexOf('SPG3000') !== -1) || (n.message && n.message.indexOf('SPG3000') !== -1);
+        if (n.type === 'price-change' && looksLikeSPG) {
+          n.product = canonicalName;
+          n.title = `Price change: ${canonicalName}`;
+          // Prefer stored price fields, otherwise keep existing textual info
+          const oldP = n.oldPrice || 'previous';
+          const newP = n.newPrice || 'current';
+          n.message = `Price increased from ${oldP} to ${newP} for ${canonicalName}. Click to view.`;
+          n.link = 'index.html#product=' + encodeURIComponent(canonicalName);
+          changed = true;
+        }
+      });
+      if (changed) localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) { /* ignore */ }
+  })();
+} catch (e) { /* ignore */ }
 
 // Prevent initial auto-scroll to anchors on page load and ensure receipts render
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -503,9 +915,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (location.hash) {
     // Jump to the top immediately (no animation) to avoid visible jump
     window.scrollTo(0, 0);
-    // Remove the hash from the URL without creating a history entry
-    history.replaceState(null, '', location.pathname + location.search);
+    // Keep the hash in place for product scroll handling (we'll handle it below)
   }
+
+  // If there's a product=... hash, scroll to the product after initial render
+  try {
+    const h = (location.hash || '');
+    if (h && h.indexOf('#product=') === 0) {
+      const name = decodeURIComponent(h.replace('#product=',''));
+      // allow the page to render then scroll smoothly
+      setTimeout(() => { scrollToProductByName(name); }, 280);
+    }
+  } catch (e) { /* ignore */ }
 
   renderReceipts();
 
@@ -531,6 +952,131 @@ document.addEventListener('DOMContentLoaded', () => {
   // Ensure products are ordered according to saved preference on initial load
   try { const mode = getProductSortMode(); if (typeof sortProductGrid === 'function') sortProductGrid(mode); } catch (e) {}
 });
+
+// Handle hashchange events (e.g., when clicking a notification link that navigates to index.html#product=...)
+window.addEventListener('hashchange', () => {
+  try {
+    const h = (location.hash || '');
+    if (h && h.indexOf('#product=') === 0) {
+      const name = decodeURIComponent(h.replace('#product=',''));
+      setTimeout(() => { scrollToProductByName(name); }, 120);
+    }
+  } catch(e) { /* ignore */ }
+});
+
+// Scroll to a product card whose <h3> matches the provided name (case-insensitive). Adds a temporary highlight.
+function scrollToProductByName(name) {
+  try {
+    if (!name) return false;
+    const cards = Array.from(document.querySelectorAll('.product-card'));
+    const needle = name.trim().toLowerCase();
+    // 1) Try exact match against data-name attribute
+    let target = cards.find(c => {
+      const dn = (c.getAttribute('data-name') || '').trim().toLowerCase();
+      return dn && dn === needle;
+    });
+    // 2) Fallback: match <h3> substring (case-insensitive)
+    if (!target) {
+      target = cards.find(c => {
+        const h = c.querySelector('h3');
+        if (!h) return false;
+        return h.textContent.trim().toLowerCase().indexOf(needle) !== -1;
+      });
+    }
+    if (!target) return false;
+    // Smooth scroll and add highlight
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('highlight');
+    // Remove old highlights after a while
+    setTimeout(() => { try { target.classList.remove('highlight'); history.replaceState(null,'', location.pathname + location.search); } catch(e){} }, 4000);
+    return true;
+  } catch (e) { return false; }
+}
+
+// Replace this user's notifications with a single welcome message
+function resetNotificationsToWelcome(user) {
+  try {
+    if (!user) return false;
+    const uid = user.id || user.email || user.name;
+    if (!uid) return false;
+    const key = 'customer_notifications_' + uid;
+    const welcome = {
+      id: 'welcome-' + Date.now(),
+      title: `Welcome, ${user.name || uid}!`,
+      message: `Welcome to our store, ${user.name || uid}.`,
+      timestamp: Date.now(),
+      read: false,
+      type: 'welcome',
+      link: 'index.html'
+    };
+    localStorage.setItem(key, JSON.stringify([welcome]));
+    // update badges/UI
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    return true;
+  } catch (e) { console.error('resetNotificationsToWelcome error', e); return false; }
+}
+
+// Admin callable: migrate all customer notification arrays to contain only a single welcome message
+function migrateAllUserNotificationsToWelcome() {
+  try {
+    const keys = Object.keys(localStorage).filter(k => k && k.indexOf('customer_notifications_') === 0);
+    keys.forEach(k => {
+      try {
+        const sample = JSON.parse(localStorage.getItem(k) || 'null');
+        const uid = k.replace('customer_notifications_', '');
+        const welcome = {
+          id: 'welcome-' + Date.now(),
+          title: `Welcome!`,
+          message: `Welcome to our store.`,
+          timestamp: Date.now(),
+          read: false,
+          type: 'welcome',
+          link: 'index.html'
+        };
+        localStorage.setItem(k, JSON.stringify([welcome]));
+      } catch (e) { /* ignore individual key errors */ }
+    });
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    return true;
+  } catch (e) { console.error('migrateAllUserNotificationsToWelcome error', e); return false; }
+}
+
+// NOTE: `migrateAllUserNotificationsToWelcome()` is a destructive operation; call it from browser console when you intend to perform a bulk migration.
+
+// Mark all notifications read for current user (best-effort server sync)
+async function markAllNotificationsRead() {
+  try {
+    const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    const uid = currentUser && (currentUser.id || currentUser.email || currentUser.name);
+    if (!uid) return false;
+    const key = 'customer_notifications_' + uid;
+
+    // Mark local notifications read
+    try {
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      let changed = false;
+      arr.forEach(n => { if (n && !n.read) { n.read = true; changed = true; } });
+      if (changed) localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) { /* ignore local mark failures */ }
+
+    // Best-effort: mark server notifications as read (if available)
+    try {
+      const items = await fetchNotificationsForDropdown(200);
+      await Promise.all(items.map(i => {
+        if (i && i.id) return fetch('http://localhost:5000/api/notifications/' + encodeURIComponent(i.id) + '/read', { method: 'POST' }).catch(() => {});
+        return Promise.resolve();
+      }));
+    } catch (e) { /* ignore server sync failures */ }
+
+    // Update badges and refresh UI
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    try { updateNotificationsBadge(); } catch (e) {}
+    try { if (_notifDropdownVisible) showNotificationsDropdown(true); } catch (e) {}
+
+    return true;
+  } catch (e) { console.error('markAllNotificationsRead error', e); return false; }
+}
+
 
 
 
@@ -3636,8 +4182,8 @@ function seedSampleNotifications() {
         const now = Date.now();
         const sample = [
           { id: 'cust-1', title: 'Welcome!', message: `Thanks for joining, ${currentUser.name.split(' ')[0]} — enjoy exclusive deals.`, time: now, read: false },
-          { id: 'order-1', title: 'Order Shipped', message: 'Your order #12345 has been shipped. Track it in your receipts.', time: now - 2 * 3600 * 1000, read: false },
-          { id: 'promo-1', title: 'Special Offer', message: 'Use code NEW10 for 10% off your next purchase.', time: now - 24 * 3600 * 1000, read: false }
+          { id: 'order-1', title: 'Order Shipped', message: 'Watchout for january will be here soon.', time: now - 2 * 3600 * 1000, read: false },
+          { id: 'promo-1', title: 'Special Offer', message: 'sales sales sales', time: now - 24 * 3600 * 1000, read: false }
         ];
         localStorage.setItem(userKey, JSON.stringify(sample));
       }

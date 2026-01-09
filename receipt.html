@@ -41,13 +41,34 @@
 
     function findOrder(orderId) {
       if (!orderId) return null;
+      
+      // Check if user is logged in
+      const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+      if (!currentUserData) {
+        return null; // User not logged in
+      }
+      
+      const currentUserId = currentUserData.email; // Use email as unique userId
       const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
       const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
-      return paid.find(o => o.orderId === orderId) || cod.find(o => o.orderId === orderId) || null;
+      
+      // Find order and verify it belongs to current user
+      const order = paid.find(o => o.orderId === orderId && o.userId === currentUserId) || 
+                    cod.find(o => o.orderId === orderId && o.userId === currentUserId) || 
+                    null;
+      return order;
     }
 
     (function render() {
       const root = document.getElementById('receipt-root');
+      
+      // Check if user is logged in
+      const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+      if (!currentUserData) {
+        root.innerHTML = '<div style="color:#9ca3af;">You must be logged in to view receipts. <a href="admin.html">Go to Account</a></div>';
+        return;
+      }
+      
       const orderId = qs('orderId');
       if (!orderId) {
         root.innerHTML = '<div style="color:#9ca3af;">No order specified.</div>';
@@ -55,7 +76,7 @@
       }
       const order = findOrder(orderId);
       if (!order) {
-        root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong></div>`;
+        root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong>. This receipt may not belong to your account.</div>`;
         return;
       }
 

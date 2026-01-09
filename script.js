@@ -4,6 +4,7 @@ function initializeUserSession() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const accountLink = document.querySelector('.account-link');
   const custNotifLink = document.getElementById('customerNotifLink');
+  const receiptsSection = document.getElementById('receipts');
   
   if (currentUser && accountLink) {
     // User is logged in, update the account link
@@ -27,10 +28,20 @@ function initializeUserSession() {
       custNotifLink.style.display = 'block';
       updateCustomerNotificationsBadge();
     }
+
+    // Show receipts section for logged-in users
+    if (receiptsSection) {
+      receiptsSection.style.display = '';
+    }
   } else {
     // Hide customer notifications link if not logged in
     if (custNotifLink) {
       custNotifLink.style.display = 'none';
+    }
+
+    // Hide receipts section for non-logged-in users
+    if (receiptsSection) {
+      receiptsSection.style.display = 'none';
     }
   }
 
@@ -207,12 +218,24 @@ function renderReceipts() {
   if (!receiptsListEl) return;
   receiptsListEl.innerHTML = '';
 
+  // Check if user is logged in
+  const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  if (!currentUserData) {
+    receiptsListEl.innerHTML = '<p style="text-align:center; color:#666;">You must create an account and login to view your receipts.</p>';
+    return;
+  }
+
+  const currentUserId = currentUserData.email; // Use email as unique userId
   const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
   const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
 
+  // Filter by current user only
+  const userPaid = paid.filter(o => o.userId === currentUserId);
+  const userCod = cod.filter(o => o.userId === currentUserId);
+
   const all = [
-    ...paid.map(o => ({ ...o, _type: 'paid' })),
-    ...cod.map(o => ({ ...o, _type: 'cod' }))
+    ...userPaid.map(o => ({ ...o, _type: 'paid' })),
+    ...userCod.map(o => ({ ...o, _type: 'cod' }))
   ];
 
   // Search/filter support: read query from receipts-search input
@@ -1973,7 +1996,9 @@ function checkout(customerInfo = {}, deliveryType = 'delivery') {
         callback: function(response) {
             alert('Payment successful! Reference: ' + response.reference);
 
+            const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
             const paymentOrder = {
+                userId: currentUserData ? currentUserData.email : null,
                 name: customerName,
                 email: customerEmail,
                 phone: customerPhone,
@@ -2445,7 +2470,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Payment accepted by Paystack — record the payment and enable Confirm.
                 alert('Payment successful! Reference: ' + response.reference);
 
+                const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
                 const paymentOrder = {
+                    userId: currentUserData ? currentUserData.email : null,
                     name,
                     email,
                     phone,

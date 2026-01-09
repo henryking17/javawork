@@ -3,6 +3,7 @@
 function initializeUserSession() {
   const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
   const accountLink = document.querySelector('.account-link');
+  const custNotifLink = document.getElementById('customerNotifLink');
   
   if (currentUser && accountLink) {
     // User is logged in, update the account link
@@ -20,10 +21,40 @@ function initializeUserSession() {
         window.location.href = 'admin.html';
       }
     };
+
+    // Show customer notifications link
+    if (custNotifLink) {
+      custNotifLink.style.display = 'block';
+      updateCustomerNotificationsBadge();
+    }
+  } else {
+    // Hide customer notifications link if not logged in
+    if (custNotifLink) {
+      custNotifLink.style.display = 'none';
+    }
   }
 
   // Update admin notifications badge
   updateNotificationsBadge();
+}
+
+// Update customer notifications badge count
+function updateCustomerNotificationsBadge() {
+  const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  if (!currentUser) return;
+
+  const notifications = JSON.parse(localStorage.getItem('customer_notifications_' + currentUser.id) || '[]');
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('custNotifBadge');
+  
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 }
 
 // Update admin notifications badge count
@@ -45,8 +76,11 @@ function updateNotificationsBadge() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initializeUserSession);
 
-// Update badge every 3 seconds
-setInterval(updateNotificationsBadge, 3000);
+// Update badges every 3 seconds
+setInterval(() => {
+  updateNotificationsBadge();
+  updateCustomerNotificationsBadge();
+}, 3000);
 
 // Show notification if login/signup was successful
 window.addEventListener('load', function() {

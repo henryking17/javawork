@@ -499,6 +499,17 @@
         notifications.unshift(notification);
         localStorage.setItem('admin_notifications', JSON.stringify(notifications));
 
+        // Create and save notification for customer
+        const customerNotif = {
+          id: 'cnotif_' + Date.now(),
+          userId: 'u_' + Date.now(),
+          type: 'account_created',
+          title: '✨ Welcome to Cympet and Co!',
+          message: `Your account has been created successfully. Welcome ${name}!`,
+          timestamp: new Date().toISOString(),
+          read: false
+        };
+
         // Auto-login new user
         const userSession = {
           id: newUser.id,
@@ -508,6 +519,13 @@
           isAdmin: false,
           loginTime: new Date().toISOString()
         };
+        
+        // Save customer notification with their user ID
+        customerNotif.userId = newUser.id;
+        let customerNotifications = JSON.parse(localStorage.getItem('customer_notifications_' + newUser.id) || '[]');
+        customerNotifications.unshift(customerNotif);
+        localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify(customerNotifications));
+        
         sessionStorage.setItem('currentUser', JSON.stringify(userSession));
 
         setSignupAlert('success', 'Account created successfully! Redirecting...');

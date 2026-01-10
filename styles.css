@@ -1488,8 +1488,63 @@ nav ul.show {
 
     /* Header account icon (hidden on desktop, visible on mobile) */
     .header-account { display: none; align-items: center; justify-content: center; text-decoration: none; color: inherit; min-width:44px; min-height:44px; position: relative; }
-    .header-account svg { display:block; }
+    .header-account svg { display:block; width:20px; height:20px; }
     .header-account:focus { outline: 3px solid #ffd54a; outline-offset:2px; border-radius:6px; }
+
+    /* Header notification icon (mobile-only) */
+    .header-notif { display: none; align-items: center; justify-content: center; text-decoration: none; color: inherit; min-width:44px; min-height:44px; position: relative; margin-right: 8px; }
+    .header-notif svg { display:block; width:20px; height:20px; }
+    .header-notif-badge { display: none; position: absolute; top: 50%; transform: translateY(-50%); right: 8px; background:#ef4444; color:#fff; min-width:18px; height:18px; padding: 0 5px; border-radius:50px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.12); z-index: 2; }
+
+    /* Desktop-specific improvements: ensure the notification badge in the nav is fully visible and not clipped */
+    @media (min-width: 769px) {
+      /* Give the notifications link extra right padding so its badge can sit outside the text without clipping */
+      nav ul li.notifications-dropdown > a#custNotifAnchor { padding-right: 44px; position: relative; }
+
+      /* Override inline/mobile positioning on desktop so the badge sits above/right of the link and scales for larger counts */
+      #custNotifBadge {
+        top: -6px !important;
+        right: -8px !important;
+        transform: none !important;
+        background: #ef4444;
+        color: #fff;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 50%;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        z-index: 3;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-notif { display: inline-flex; }
+      /* Ensure icon spacing so header elements remain visible on cramped screens */
+      header .container { gap: 6px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+
+      /* Compact icon sizing and spacing for icons group */
+      .header-account, .header-notif, .cart-icon, .hamburger {
+        min-width: 36px; min-height: 36px; padding: 6px; border-radius: 6px; display:inline-flex; align-items:center; justify-content:center;
+      }
+      .header-account svg, .header-notif svg { width:18px; height:18px; }
+
+      /* Cart badge adjustments */
+      #cart-count { background:#ef4444; color:#fff; border-radius:50%; min-width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; padding:0 5px; margin-left:4px; }
+    }
+
+    /* Very small screens: shrink further to keep everything visible */
+    @media (max-width: 420px) {
+      #logo { height: 72px !important; }
+      header .container { gap: 4px; }
+      .header-account, .header-notif, .cart-icon, .hamburger { min-width:32px; min-height:32px; padding:4px; }
+      .header-account svg, .header-notif svg { width:16px; height:16px; }
+    }
 
     /* Checkmark badge (hidden by default; shown when user is logged-in) */
     .account-badge { display: none; position: absolute; top: -4px; right: -4px; background: #16a34a; color: #fff; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.18); border:2px solid #fff; }
@@ -1502,6 +1557,9 @@ nav ul.show {
       .header-account svg { width:20px; height:20px; }
       /* Show account dropdown inside mobile nav/hamburger and ensure it stacks */
       nav ul .account-dropdown { display: block !important; order: -1; }
+
+      /* Give the notifications nav link extra right padding so the badge fits fully */
+      nav ul li a#custNotifAnchor { padding-right: 48px; }
     }
 
     /* Desktop: ensure header account is always hidden on larger screens */

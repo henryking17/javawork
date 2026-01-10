@@ -14,8 +14,8 @@ function initializeUserSession() {
     // User is logged in
     accountLink.innerHTML = `<b>👤 ${currentUser.name.split(' ')[0]}</b>`;
     
-    // Header account (mobile icon): show check badge and add tooltip
-    setHeaderAccountLoggedIn(true, currentUser.name);
+    // Header account (mobile icon): show check badge only if this is a successful login (loginTime) and on mobile
+    setHeaderAccountLoggedIn(!!(currentUser && currentUser.loginTime), currentUser.name);
     
     // Show logout, hide signin
     if (signInLink) signInLink.style.display = 'none';
@@ -128,7 +128,10 @@ function setHeaderAccountLoggedIn(isLoggedIn, userName) {
   const headerAccount = document.getElementById('headerAccount');
   if (!headerAccount) return;
   const badge = headerAccount.querySelector('.account-badge');
-  if (isLoggedIn) {
+  const isMobile = (window.innerWidth || document.documentElement.clientWidth) < 769;
+
+  // Only show the green check on mobile and when login is a confirmed successful login (isLoggedIn === true)
+  if (isLoggedIn && isMobile) {
     headerAccount.classList.add('logged-in');
     headerAccount.setAttribute('title', `Signed in as ${userName || 'User'}`);
     headerAccount.setAttribute('aria-checked', 'true');
@@ -302,13 +305,18 @@ function updateCustomerNotificationsBadge() {
   const badge = document.getElementById('custNotifBadge');
   if (!badge) return;
 
+  const headerBadge = document.getElementById('headerNotifBadge');
+  const headerNode = document.getElementById('headerNotif');
+
   // If no logged-in user, we rely on broadcast count to decide visibility
   if (!currentUser) {
     if (_lastBroadcastCount && _lastBroadcastCount > 0) {
       badge.textContent = _lastBroadcastCount > 9 ? '9+' : _lastBroadcastCount;
       badge.style.display = 'flex';
+      if (headerBadge) { headerBadge.textContent = badge.textContent; headerBadge.style.display = 'flex'; }
     } else {
       badge.style.display = 'none';
+      if (headerBadge) headerBadge.style.display = 'none';
     }
     return;
   }
@@ -317,8 +325,16 @@ function updateCustomerNotificationsBadge() {
   const personalUnread = notifications.filter(n => !n.read).length;
   const combined = personalUnread + (_lastBroadcastCount || 0);
 
-  if (combined > 0) { badge.textContent = combined > 9 ? '9+' : combined; badge.style.display = 'flex'; }
-  else { badge.style.display = 'none'; }
+  if (combined > 0) {
+    badge.textContent = combined > 9 ? '9+' : combined;
+    badge.style.display = 'flex';
+    if (headerBadge) { headerBadge.textContent = badge.textContent; headerBadge.style.display = 'flex'; }
+    if (headerNode) headerNode.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+    if (headerBadge) headerBadge.style.display = 'none';
+    if (headerNode) headerNode.style.display = '';
+  }
 }
 
 // Ensure a welcome notification exists for a logged-in user (only created once)
@@ -494,7 +510,8 @@ function renderNotifDropdown(items) {
 
 function showNotificationsDropdown(autoOpen = false) {
   const container = document.getElementById('notifDropdown');
-  const anchor = document.getElementById('custNotifAnchor');
+  // Prefer the in-nav anchor when present, otherwise fall back to mobile header icon
+  const anchor = document.getElementById('custNotifAnchor') || document.getElementById('headerNotif');
   if (!container || !anchor) return;
   // use CSS class to show
   container.classList.add('open');
@@ -527,7 +544,7 @@ function showNotificationsDropdown(autoOpen = false) {
 
   // outside click handler
   _notifOutsideClickHandler = (ev) => {
-    if (!ev.target.closest('#notifDropdown') && ev.target !== anchor && !ev.target.closest('#custNotifAnchor')) {
+    if (!ev.target.closest('#notifDropdown') && ev.target !== anchor && !ev.target.closest('#custNotifAnchor') && !ev.target.closest('#headerNotif')) {
       toggleNotificationsDropdown(false);
     }
   };
@@ -540,7 +557,7 @@ function showNotificationsDropdown(autoOpen = false) {
 
 function hideNotificationsDropdown() {
   const container = document.getElementById('notifDropdown');
-  const anchor = document.getElementById('custNotifAnchor');
+  const anchor = document.getElementById('custNotifAnchor') || document.getElementById('headerNotif');
   if (!container || !anchor) return;
   container.classList.remove('open');
   container.classList.remove('auto-open');
@@ -561,6 +578,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const anchor = document.getElementById('custNotifAnchor');
   if (anchor) {
     anchor.addEventListener('click', (ev) => { ev.preventDefault(); toggleNotificationsDropdown(); });
+  }
+
+  // Also support the mobile header notification icon (beside cart)
+  const headerAnchor = document.getElementById('headerNotif');
+  if (headerAnchor) {
+    headerAnchor.addEventListener('click', (ev) => { ev.preventDefault(); toggleNotificationsDropdown(); });
+    // support keyboard activation (Enter / Space)
+    headerAnchor.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleNotificationsDropdown(); } });
   }
 });
 
@@ -1693,24 +1718,9 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 block: 'start'
             });
         }
-        // Close mobile menu after clicking (cleanup drawer/backdrop and return focus)
-        if (typeof navUl !== 'undefined' && navUl) {
-            navUl.classList.remove('show');
-            try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
-            const closeBtn = navUl.querySelector('.nav-close');
-            if (closeBtn) closeBtn.remove();
-        }
-        const navBackdrop = document.getElementById('nav-backdrop');
-        if (navBackdrop) {
-            navBackdrop.classList.remove('show');
-            setTimeout(() => { if (navBackdrop.parentNode) navBackdrop.parentNode.removeChild(navBackdrop); }, 260);
-        }
-        if (typeof hamburger !== 'undefined' && hamburger) {
-            hamburger.classList.remove('active');
-            hamburger.setAttribute('aria-expanded', 'false');
-            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); hamburger.focus(); } catch (e) {}
-        }
-        document.body.classList.remove('nav-open');
+        // Note: Do not auto-close the mobile menu when a navigation link is clicked.
+        // The menu will remain open until the user explicitly closes it with the X (hamburger) button.
+        // If navigation occurs (page unload), the menu state will naturally reset.
     });
 });
 
@@ -1743,53 +1753,22 @@ if (hamburger && navUl) {
         }
     }, { passive: false });
 
-    // Close menu when clicking on a nav link
+    // Nav link click handler: keep the menu open; only special dropdown toggles should stop propagation
     const navLinks = navUl.querySelectorAll('li a, li button');
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
-            // Check if it's a dropdown toggle (account button)
+            // If it's a dropdown toggle (account button), let it handle its own toggling
             if (link.classList.contains('dropdown-toggle')) {
                 e.preventDefault();
                 e.stopPropagation();
-                // Let the dropdown menu toggle handle it - don't close the hamburger menu
                 return;
             }
-            
-            // Check if it's a hash link (navigation within same page)
-            const href = link.getAttribute('href');
-            if (href && href.startsWith('#')) {
-                navUl.classList.remove('show');
-                try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
-                hamburger.classList.remove('active');
-                hamburger.setAttribute('aria-expanded', 'false');
-                try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
-            }
+            // Do not close the menu here; menu closes only when user clicks the hamburger (X)
         });
     });
 
-    // Close menu when clicking outside of it
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('nav') && !e.target.closest('.hamburger')) {
-            if (navUl.classList.contains('show')) {
-                navUl.classList.remove('show');
-                try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
-                hamburger.classList.remove('active');
-                hamburger.setAttribute('aria-expanded', 'false');
-                try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
-            }
-        }
-    });
-
-    // add ESC to close menu and remove active state
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && navUl.classList.contains('show')) {
-            navUl.classList.remove('show');
-            try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
-            hamburger.classList.remove('active');
-            hamburger.setAttribute('aria-expanded', 'false');
-            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); } catch (err) {}
-        }
-    });
+    // Note: Intentionally removed outside-click and Escape handlers to prevent accidental closing of the mobile menu.
+    // The mobile menu now only closes when the hamburger (which becomes an X) is clicked.
 }
 
 // Mobile search: copy the query to the main search input and trigger existing search behavior
@@ -1813,6 +1792,48 @@ if (mobileSearchBtn && mobileSearchInput) {
         if (e.key === 'Enter') {
             e.preventDefault();
             mobileSearchBtn.click();
+        }
+    });
+
+    // Hamburger menu links: smooth-scroll to section and close the menu when clicked
+    ['#contact','#receipts','#payment'].forEach(sel => {
+        const el = document.querySelector('nav ul a[href="' + sel + '"]');
+        if (el) {
+            el.addEventListener('click', (ev) => {
+                // Smooth-scroll to target
+                const target = document.querySelector(sel);
+                if (target) {
+                    try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) {}
+                }
+                // Update URL
+                try { if (history && typeof history.pushState === 'function') history.pushState(null, '', sel); else location.hash = sel; } catch(e) {}
+
+                // Close the mobile menu
+                try {
+                    if (navUl && navUl.classList.contains('show')) {
+                        navUl.classList.remove('show');
+                        try { navUl.setAttribute('aria-hidden', 'true'); } catch (err) {}
+                        if (hamburger) {
+                            hamburger.classList.remove('active');
+                            hamburger.setAttribute('aria-expanded', 'false');
+                            try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); hamburger.focus(); } catch (err) {}
+                        }
+                        const mobileSearchLi = document.querySelector('.mobile-search');
+                        if (mobileSearchLi) mobileSearchLi.setAttribute('aria-hidden', 'true');
+                        const mobileInput = document.getElementById('mobile-search-input');
+                        if (mobileInput) try { mobileInput.blur(); } catch(e) {}
+                        document.body.classList.remove('nav-open');
+                    }
+                } catch (err) { /* ignore */ }
+
+                // Focus target for keyboard users
+                try {
+                    if (target && !(target.hasAttribute('tabindex') && target.getAttribute('tabindex') !== '-1')) {
+                        target.setAttribute('tabindex', '-1');
+                        target.focus({ preventScroll: true });
+                    }
+                } catch (err) { /* ignore */ }
+            });
         }
     });
 
@@ -2533,6 +2554,14 @@ function toggleFavorite(productKey) {
   
   localStorage.setItem('favorites', JSON.stringify(favorites));
   updateFavoriteStars();
+
+  // If the cart/favorites modal is open, refresh it immediately so the UI reflects the change
+  try {
+    const cartModal = document.getElementById('cart-modal');
+    if (cartModal && cartModal.style && cartModal.style.display === 'block') {
+      showCart();
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function isFavorite(productKey) {
@@ -2644,7 +2673,15 @@ function addToCart(productKey) {
         cartCountEl.classList.add('animate');
         setTimeout(() => cartCountEl.classList.remove('animate'), 600);
     }
-    alert(`${key} added to cart.`);
+    showNotification(`${key} added to cart.`, 'success');
+
+    // If the cart/favorites modal is open, refresh it immediately so the UI reflects the added item
+    try {
+      const cartModal = document.getElementById('cart-modal');
+      if (cartModal && cartModal.style && cartModal.style.display === 'block') {
+        showCart();
+      }
+    } catch (e) { /* ignore */ }
 }
 
 function updateCartCount() {
@@ -2796,31 +2833,17 @@ function showCart() {
           transition: all 150ms ease;
         `;
         
+        // Determine if this product is already in the cart and show immediate state
+        const inCart = !!cart[productKey];
+        const addBtnHtml = inCart
+          ? `<button disabled style="background:#e5e7eb;border:none;border-radius:6px;padding:6px 10px;font-size:12px;color:#555;width:100%;margin-bottom:6px;">In Cart</button>`
+          : `<button onclick="addToCart('${escapeForJs(productKey)}')" style="background: linear-gradient(180deg, #FFD54A 0%, #F0C419 100%);border: none;border-radius: 6px;padding: 6px 10px;cursor: pointer;font-size: 12px;font-weight: 600;color: #111;width: 100%;margin-bottom: 6px;">Add to Cart</button>`;
+
         favCard.innerHTML = `
           <div style="font-size: 12px; color: #666; margin-bottom: 8px; word-break: break-word;">${productKey}</div>
           <div style="font-weight: bold; margin-bottom: 8px; color: #ff6b6b;">${fav.price ? formatPrice(fav.price) : 'N/A'}</div>
-          <button onclick="addToCart('${escapeForJs(productKey)}')" style="
-            background: linear-gradient(180deg, #FFD54A 0%, #F0C419 100%);
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            color: #111;
-            width: 100%;
-            margin-bottom: 6px;
-          ">Add to Cart</button>
-          <button onclick="toggleFavorite('${escapeForJs(productKey)}')" style="
-            background: transparent;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-size: 12px;
-            color: #666;
-            width: 100%;
-          ">Remove ✕</button>
+          ${addBtnHtml}
+          <button onclick="toggleFavorite('${escapeForJs(productKey)}')" style="background: transparent;border: 1px solid #ccc;border-radius: 6px;padding: 4px 8px;cursor: pointer;font-size: 12px;color: #666;width: 100%;">Remove ✕</button>
         `;
         
         favCard.addEventListener('mouseenter', () => {

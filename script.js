@@ -14,6 +14,9 @@ function initializeUserSession() {
     // User is logged in
     accountLink.innerHTML = `<b>👤 ${currentUser.name.split(' ')[0]}</b>`;
     
+    // Header account (mobile icon): show check badge and add tooltip
+    setHeaderAccountLoggedIn(true, currentUser.name);
+    
     // Show logout, hide signin
     if (signInLink) signInLink.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = 'block';
@@ -55,6 +58,9 @@ function initializeUserSession() {
   } else {
     // User is not logged in
     accountLink.innerHTML = `<b>👤 Account</b>`;
+    
+    // Header account (mobile icon): hide check badge and reset tooltip
+    setHeaderAccountLoggedIn(false);
     
     // Show signin, hide logout
     if (signInLink) signInLink.style.display = 'block';
@@ -98,6 +104,7 @@ function initializeUserSession() {
         showNotification(`Logged out successfully. See you soon!`, 'success');
         setTimeout(() => {
           sessionStorage.removeItem('currentUser');
+          setHeaderAccountLoggedIn(false);
           window.location.href = 'admin.html';
         }, 300);
       });
@@ -109,8 +116,185 @@ function initializeUserSession() {
         dropdownMenu.classList.remove('show');
       }
     });
+
+  // Ensure header account DOM placement matches viewport
+  try { manageHeaderAccountInDOM(); } catch (e) {}
+
   }
 }
+
+// Helper: set header account badge visibility
+function setHeaderAccountLoggedIn(isLoggedIn, userName) {
+  const headerAccount = document.getElementById('headerAccount');
+  if (!headerAccount) return;
+  const badge = headerAccount.querySelector('.account-badge');
+  if (isLoggedIn) {
+    headerAccount.classList.add('logged-in');
+    headerAccount.setAttribute('title', `Signed in as ${userName || 'User'}`);
+    headerAccount.setAttribute('aria-checked', 'true');
+    if (badge) { badge.setAttribute('aria-hidden', 'false'); }
+  } else {
+    headerAccount.classList.remove('logged-in');
+    headerAccount.setAttribute('title', 'Account');
+    headerAccount.removeAttribute('aria-checked');
+    if (badge) { badge.setAttribute('aria-hidden', 'true'); }
+  }
+}
+
+// Listen to storage events (other tabs) to update the UI when login state changes
+window.addEventListener('storage', (e) => {
+  if (e.key === 'currentUser') {
+    initializeUserSession();
+  }
+});
+
+// Create header account node when needed (used for dynamic injection on mobile)
+function createHeaderAccountNode() {
+  const a = document.createElement('a');
+  a.href = 'admin.html';
+  a.id = 'headerAccount';
+  a.className = 'header-account';
+  a.setAttribute('aria-label', 'Account');
+  a.setAttribute('title', 'Account');
+  a.setAttribute('role', 'button');
+  a.setAttribute('tabindex', '0');
+  a.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5z" fill="#111"/>
+      <path d="M2 22c0-4.418 3.582-8 8-8h4c4.418 0 8 3.582 8 8v0H2z" fill="#111"/>
+    </svg>
+    <span class="account-badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true" focusable="false">
+        <path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+  `;
+
+  // Click / keyboard behavior to match desktop: if signed in, trigger logout; otherwise go to sign-in
+  function activateAccount(e) {
+    try {
+      if (e) e.preventDefault();
+      const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+      const logoutBtn = document.querySelector('.dropdown-logout');
+      if (currentUser && logoutBtn) {
+        // Trigger same logout flow as desktop
+        logoutBtn.click();
+        return;
+      }
+
+      // Not logged in: prefer opening the dedicated sign-in page on mobile
+      window.location.href = 'admin.html';
+    } catch (err) { /* ignore */ }
+  }
+
+  a.addEventListener('click', activateAccount);
+  a.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      activateAccount(e);
+    }
+  });
+
+  return a;
+}
+
+// Manage headerAccount node: remove from desktop DOM and reinsert on mobile (creates node when necessary)
+function manageHeaderAccountInDOM() {
+  try {
+    const minDesktop = 769;
+    const width = window.innerWidth || document.documentElement.clientWidth;
+    let existing = document.getElementById('headerAccount');
+
+    if (width >= minDesktop) {
+      // Remove from DOM (but keep a reference) when on desktop
+      if (existing) {
+        window._headerAccountNode = existing;
+        existing.parentNode && existing.parentNode.removeChild(existing);
+      }
+      return;
+    }
+
+    // mobile viewport: ensure it exists
+    if (!existing) {
+      let node = window._headerAccountNode;
+      if (!node) {
+        node = createHeaderAccountNode();
+        window._headerAccountNode = node;
+      }
+      const headerContainer = document.querySelector('header .container') || document.querySelector('header');
+      if (headerContainer) {
+        const ref = document.querySelector('.cart-icon') || document.getElementById('hamburger');
+        headerContainer.insertBefore(node, ref);
+      }
+      existing = node;
+    }
+
+    // Apply current login state so badge shows appropriately
+    const cur = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    setHeaderAccountLoggedIn(!!cur, cur ? cur.name : undefined);
+
+    // Ensure account item appears first in the mobile hamburger
+    try { ensureAccountDropdownFirstOnMobile(); } catch(e) {}
+
+  } catch (e) { /* ignore */ }
+}
+
+// Ensure the account dropdown appears after the Payment item inside the mobile nav and is visible on mobile
+function ensureAccountDropdownFirstOnMobile() {
+  try {
+    const nav = document.getElementById('main-nav');
+    if (!nav) return;
+    const isMobile = (window.innerWidth || document.documentElement.clientWidth) < 769;
+    const accountLi = document.querySelector('li.account-dropdown');
+    if (!accountLi) return;
+
+    if (isMobile) {
+      // Prefer placing the account li right after the Payment item for visibility
+      let paymentLi = nav.querySelector('a[href="#payment"]');
+      if (paymentLi) paymentLi = paymentLi.closest('li');
+      if (!paymentLi) {
+        // fallback by text content match (defensive)
+        paymentLi = Array.from(nav.querySelectorAll('li')).find(li => (li.textContent || '').toLowerCase().includes('payment'));
+      }
+
+      if (paymentLi) {
+        if (accountLi.parentNode !== nav) {
+          accountLi.parentNode && accountLi.parentNode.removeChild(accountLi);
+        }
+        nav.insertBefore(accountLi, paymentLi.nextSibling);
+      } else {
+        // Fallback: place under mobile search if payment not found
+        const mobileSearchLi = nav.querySelector('li.mobile-search');
+        if (mobileSearchLi) {
+          if (accountLi.parentNode !== nav) accountLi.parentNode && accountLi.parentNode.removeChild(accountLi);
+          nav.insertBefore(accountLi, mobileSearchLi.nextSibling);
+        } else {
+          if (accountLi.parentNode !== nav) accountLi.parentNode && accountLi.parentNode.removeChild(accountLi);
+          nav.insertBefore(accountLi, nav.firstChild);
+        }
+      }
+
+      accountLi.style.display = '';
+      accountLi.setAttribute('aria-hidden', 'false');
+    } else {
+      // On desktop keep default ordering but ensure it's visible (desktop CSS will typically hide mobile ordering)
+      accountLi.style.display = '';
+      accountLi.removeAttribute('aria-hidden');
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// Debounced resize handler to keep DOM in sync with viewport size
+(function() {
+  let _resizeTimer = null;
+  function onResize() {
+    if (_resizeTimer) clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => { try { manageHeaderAccountInDOM(); } catch(e){} }, 120);
+  }
+  window.addEventListener('resize', onResize);
+  // Also run once when DOM is ready
+  if (document.readyState === 'complete' || document.readyState === 'interactive') manageHeaderAccountInDOM();
+  else document.addEventListener('DOMContentLoaded', manageHeaderAccountInDOM);
+});
 
 // Update the customer notification badge by combining personal unread items with cached broadcast count (resilient to transient fetch failures)
 function updateCustomerNotificationsBadge() {

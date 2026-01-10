@@ -42,7 +42,7 @@
         <div class="container">
            
             
-            <img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo">
+            <a href="index.html" id="logo-link" aria-label="Home"><img id="logo" src="Copilot_20251226_202609.png" alt="Cympet and Co Logo"></a>
             <nav aria-label="Main navigation">
                 <ul id="main-nav" aria-hidden="true">
                     <!-- Mobile search: appears at top of hamburger menu on small screens -->
@@ -52,7 +52,6 @@
                         <button id="mobile-search-btn" class="btn mobile-search-btn gold" type="button">Search</button>
                       </form>
                     </li>
-                    <li><a href="#home"><b>Home</b></a></li>
                     <li><a href="#contact"><b>Contact Us</b></a></li>
                     <li><a href="#receipts"><b>Receipts</b></a></li>
                     <li><a href="#payment"><b>Payment</b></a></li>
@@ -81,6 +80,9 @@
                 <input type="text" id="search-input" placeholder="Search products...">
                 <button id="search-btn" class="btn gold">Search</button>
             </div>
+
+            <!-- Header account icon is injected dynamically on mobile -->
+
             <div class="cart-icon" onclick="showCart()">
                 🛒 <span id="cart-count">0</span>
             </div>

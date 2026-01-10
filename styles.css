@@ -12,6 +12,26 @@ body {
     background-color: #ffffff;
 }
 
+/* Reduce excessive motion: make the site feel calmer (Jumia-like) */
+/* Global overrides — keeps interactions snappy but stops long/looping animations */
+* {
+  transition-duration: 120ms !important;
+  transition-delay: 0ms !important;
+  animation-duration: 120ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* Disable non-essential infinite/looping animations explicitly */
+.goldPulse, .bellPulse, .glowPulse, .hero-red-glow, #custNotifAnchor.pulse, .headingGlow, .headingBorderMove, .starGlow, .starBounce, .cartBounce {
+  animation: none !important;
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
 
 .country-btn { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; color: var(--muted); cursor: pointer; }
 
@@ -1441,11 +1461,56 @@ nav ul.show {
     .mobile-search { display: none; }
 
     /* When menu is open, show mobile search at the top of the menu */
-    nav ul.show .mobile-search { display: flex; padding: 0.75rem 1rem; justify-content: center; align-items: center; width: 100%; }
+    nav ul.show .mobile-search {
+        display: flex;
+        padding: 0.75rem 1rem;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+        margin-bottom: 8px;
+    }
+
+    /* Mobile-specific spacing: make Account entry sit immediately under the search with a little breathing room */
+    @media (max-width: 768px) {
+        .account-dropdown { margin-bottom: 12px; }
+        nav ul .mobile-search + .account-dropdown { margin-top: 8px; padding-top: 8px; border-top: none; }
+    }
     
     .hamburger {
         display: flex;
+        position: absolute;
+        left: 12px;
+        top: 18px;
+        z-index: 1005;
+        margin-left: 0;
     }
+
+    /* Header account icon (hidden on desktop, visible on mobile) */
+    .header-account { display: none; align-items: center; justify-content: center; text-decoration: none; color: inherit; min-width:44px; min-height:44px; position: relative; }
+    .header-account svg { display:block; }
+    .header-account:focus { outline: 3px solid #ffd54a; outline-offset:2px; border-radius:6px; }
+
+    /* Checkmark badge (hidden by default; shown when user is logged-in) */
+    .account-badge { display: none; position: absolute; top: -4px; right: -4px; background: #16a34a; color: #fff; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.18); border:2px solid #fff; }
+    .header-account.logged-in .account-badge { display: flex; animation: badge-pop 240ms cubic-bezier(.2,.9,.2,1); }
+    @keyframes badge-pop { 0% { transform: scale(.2); opacity:0 } 60% { transform: scale(1.12); opacity:1 } 100% { transform: scale(1); } }
+
+    /* Mobile-specific header account show and hide nav account */
+    @media (max-width: 768px) {
+      .header-account { display: inline-flex; min-width:44px; min-height:44px; padding:6px; margin-left:8px; border-radius:6px; }
+      .header-account svg { width:20px; height:20px; }
+      /* Show account dropdown inside mobile nav/hamburger and ensure it stacks */
+      nav ul .account-dropdown { display: block !important; order: -1; }
+    }
+
+    /* Desktop: ensure header account is always hidden on larger screens */
+    @media (min-width: 769px) {
+      .header-account { display: none !important; }
+    }
+
+    /* Push header contents to avoid overlap with left hamburger */
+    header .container { padding-left: 64px; }
     
     nav ul {
         flex-direction: column;

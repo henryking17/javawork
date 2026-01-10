@@ -1083,9 +1083,63 @@ function addPriceIncreaseNotification(productName, oldPrice, newPrice, userId) {
 }
 
 // Ensure price notification uses the canonical product name and migrate legacy notifications to match
+// Helper: remove any price-change notifications for product (per-user)
+function removePriceNotificationsForProduct(productName, userId) {
+  try {
+    const uid = userId || ((JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).id || (JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).email);
+    if (!uid) return false;
+    const key = 'customer_notifications_' + uid;
+    const arr = JSON.parse(localStorage.getItem(key) || '[]');
+    const filtered = arr.filter(n => !(n && n.type === 'price-change' && n.product === productName));
+    if (filtered.length === arr.length) return false;
+    localStorage.setItem(key, JSON.stringify(filtered));
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    return true;
+  } catch (e) { return false; }
+}
+
+// Add helper to post a price decrease notification (per-user localStorage)
+function addPriceDecreaseNotification(productName, oldPrice, newPrice, userId) {
+  try {
+    const uid = userId || ((JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).id || (JSON.parse(sessionStorage.getItem('currentUser') || 'null') || {}).email);
+    // if no uid, add to demo key so it can be seen in demo mode
+    const targetUids = uid ? [uid] : ['demo@example.com'];
+    targetUids.forEach(uidLocal => {
+      const key = 'customer_notifications_' + uidLocal;
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      const title = `Price change: ${productName}`;
+      const message = `Price decreased from ${oldPrice} to ${newPrice} for ${productName}. Click to view.`;
+      // avoid duplicate notifications for the same product + price
+      const exists = list.find(n => n && n.type === 'price-change' && n.product === productName && n.newPrice === newPrice && n.message === message);
+      if (exists) return;
+      const targetHash = '#product=' + encodeURIComponent(productName);
+      const notif = {
+        id: 'price-' + Date.now() + '-' + Math.random().toString(36).slice(2,8),
+        title: title,
+        message: message,
+        timestamp: Date.now(),
+        read: false,
+        type: 'price-change',
+        product: productName,
+        oldPrice: oldPrice,
+        newPrice: newPrice,
+        link: 'index.html' + targetHash // link to products section and product name via hash
+      };
+      list.unshift(notif);
+      localStorage.setItem(key, JSON.stringify(list));
+      try { updateCustomerNotificationsBadge(); } catch (e) {}
+    });
+    try { if (_notifDropdownVisible) toggleNotificationsDropdown(true); } catch (e) {}
+    return true;
+  } catch (e) { console.error('Error adding price decrease notification', e); return false; }
+}
+
 try {
-  const canonicalName = 'Sumec Firman Generator SPG3000 Manual';
-  addPriceIncreaseNotification(canonicalName, '₦120,000', '₦150,000');
+  // Remove the previously added SPG3000 price-change notification (if present) so we don't show it anymore
+  try { removePriceNotificationsForProduct('Sumec Firman Generator SPG3000 Manual'); } catch (e) {}
+
+  // Add a new price-decrease notification for Hisense 65' Smart Television (₦600,000 -> ₦550,000)
+  addPriceDecreaseNotification("Hisense 65' Smart Television", '₦600,000', '₦550,000');
 
   // Migrate any legacy price notifications referencing older/short names (e.g., 'SPG3000')
   (function migrateLegacySPG3000() {
@@ -1100,13 +1154,13 @@ try {
         if (!n) return;
         const looksLikeSPG = (n.product && n.product.indexOf('SPG3000') !== -1) || (n.title && n.title.indexOf('SPG3000') !== -1) || (n.message && n.message.indexOf('SPG3000') !== -1);
         if (n.type === 'price-change' && looksLikeSPG) {
-          n.product = canonicalName;
-          n.title = `Price change: ${canonicalName}`;
+          n.product = 'Sumec Firman Generator SPG3000 Manual';
+          n.title = `Price change: ${'Sumec Firman Generator SPG3000 Manual'}`;
           // Prefer stored price fields, otherwise keep existing textual info
           const oldP = n.oldPrice || 'previous';
           const newP = n.newPrice || 'current';
-          n.message = `Price increased from ${oldP} to ${newP} for ${canonicalName}. Click to view.`;
-          n.link = 'index.html#product=' + encodeURIComponent(canonicalName);
+          n.message = `Price increased from ${oldP} to ${newP} for ${'Sumec Firman Generator SPG3000 Manual'}. Click to view.`;
+          n.link = 'index.html#product=' + encodeURIComponent('Sumec Firman Generator SPG3000 Manual');
           changed = true;
         }
       });
@@ -2538,6 +2592,45 @@ window.addEventListener('click', function(e) {
     }
     // Intentionally do NOT close delivery modal when clicking the overlay.
     // Delivery modal should only be closed via the cancel (×) button.
+});
+
+// Mini loader helper: show a compact spinner inside a target element for a short time
+function showMiniLoaderOnElement(target, ms = 300) {
+  try {
+    if (!target) return;
+    if (target.querySelector && target.querySelector('.mini-loader')) return; // avoid duplicates
+
+    const loader = document.createElement('span');
+    loader.className = 'mini-loader';
+    loader.setAttribute('aria-hidden', 'true');
+    loader.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 .587l3.668 7.431L23.5 9.75l-5.75 5.612L19.335 24 12 19.897 4.665 24l1.585-8.638L.5 9.75l7.832-1.732z"></path></svg>';
+
+    // Append and remove after ms
+    if (target.appendChild) target.appendChild(loader);
+    // Force reflow so animation starts correctly
+    void loader.offsetWidth;
+    setTimeout(() => { try { loader.remove(); } catch (e){} }, ms);
+  } catch (e) { /* ignore */ }
+}
+
+// Show mini loader on product-card or cart icon clicks (capture so it shows immediately)
+document.addEventListener('click', function(e){
+  try {
+    const p = e.target.closest('.product-card');
+    const c = e.target.closest('.cart-icon');
+    if (p) showMiniLoaderOnElement(p, 320);
+    if (c) showMiniLoaderOnElement(c, 380);
+  } catch (err) { /* ignore */ }
+}, true);
+
+// Keyboard activation (Enter/Space) on focused product card
+document.addEventListener('keydown', function(e){
+  try {
+    const active = document.activeElement;
+    if ((e.key === 'Enter' || e.key === ' ') && active && active.classList && active.classList.contains('product-card')) {
+      showMiniLoaderOnElement(active, 320);
+    }
+  } catch (err) { /* ignore */ }
 });
 
 // -------------------- Cart (fully functional) --------------------
@@ -4412,7 +4505,8 @@ function seedSampleNotifications() {
       const demo = JSON.parse(localStorage.getItem(demoKey) || '[]');
       if (!demo || demo.length === 0) {
         localStorage.setItem(demoKey, JSON.stringify([
-          { id: 'demo-1', title: 'Demo Notification', message: 'Log in to see personalized notifications. Try demo@example.com', time: Date.now(), read: false }
+          { id: 'demo-1', title: 'Demo Notification', message: 'Log in to see personalized notifications. Try demo@example.com', time: Date.now(), read: false },
+          { id: 'demo-price-hisense', title: "Price change: Hisense 65' Smart Television", message: "Price decreased from ₦600,000 to ₦550,000 for Hisense 65' Smart Television. Click to view.", time: Date.now() - 3600 * 1000, read: false, type: 'price-change', product: "Hisense 65' Smart Television", oldPrice: '₦600,000', newPrice: '₦550,000', link: 'index.html#product=Hisense%2065%27%20Smart%20Television' }
         ]));
       }
     }

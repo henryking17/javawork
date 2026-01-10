@@ -2094,6 +2094,19 @@ document.addEventListener('DOMContentLoaded', function() {
       barInner.appendChild(btn);
     });
 
+    // Make a global helper to open a category programmatically
+    window.showCategoryByName = function(name, scroll = true) {
+      try {
+        if (!name) return;
+        const btn = Array.from(document.querySelectorAll('#categories-inner .category-item')).find(b => b.dataset.name === name);
+        if (btn) { btn.click(); return; }
+        // not found: try case-insensitive match
+        const btn2 = Array.from(document.querySelectorAll('#categories-inner .category-item')).find(b => (b.dataset.name || '').toLowerCase() === (name || '').toLowerCase());
+        if (btn2) { btn2.click(); return; }
+        console.warn('Category not found:', name);
+      } catch (e) { console.error(e); }
+    };
+
     // Do not auto-open any category on load. Show a small placeholder prompting selection.
     productsArea.innerHTML = '<div class="category-placeholder">Click a category to view products.</div>'; 
 
@@ -4449,5 +4462,301 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 
+// Hero carousel: autoplay, interactive drag (follow-finger), keyboard and accessibility support
+(function initHeroCarousel(){
+  const carousel = document.getElementById('heroCarousel');
+  if (!carousel) return;
+  const slidesEl = carousel.querySelector('.slides');
+  const slides = Array.from(carousel.querySelectorAll('.slide'));
+  const indicators = Array.from(carousel.querySelectorAll('.indicator'));
+  const prevBtn = document.getElementById('heroPrev');
+  const nextBtn = document.getElementById('heroNext');
+  const live = document.getElementById('heroAnnounce');
+
+  if (!slides.length) return;
+
+  let index = 0;
+  const AUTOPLAY_MS = 4000; // faster autoplay (3s) for Jumia-like feel
+  let timer = null;
+  const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Dragging state
+  let isDragging = false;
+  let startX = 0;
+  let currentTranslate = 0;
+  let prevTranslate = 0;
+  let animationFrame = null;
+  let lastTime = 0;
+  let lastPos = 0;
+  const RESUME_DELAY = 1000; // resume autoplay after this ms following interaction (shorter for snappier feel)
+  let resumeTimeout = null;
+
+  function setTranslate(x, withTransition=true){
+    if (!withTransition) slidesEl.classList.add('dragging'); else slidesEl.classList.remove('dragging');
+    slidesEl.style.transform = `translateX(${x}px)`;
+  }
+
+  function snapToIndex(i){
+    index = ((i % slides.length) + slides.length) % slides.length;
+    const width = carousel.clientWidth;
+    currentTranslate = -index * width;
+    prevTranslate = currentTranslate;
+    slidesEl.classList.remove('dragging');
+    slidesEl.style.transition = 'transform 420ms cubic-bezier(.22,.9,.24,1)';
+    slidesEl.style.transform = `translateX(${currentTranslate}px)`;
+    slides.forEach((s, idx)=> s.setAttribute('aria-hidden', idx===index ? 'false' : 'true'));
+    indicators.forEach((b,i)=>{ b.classList.toggle('active', i===index); b.setAttribute('aria-selected', i===index ? 'true' : 'false'); });
+    announceSlide();
+    // remove transition style after it completes to keep interactive feel
+    setTimeout(()=>{ slidesEl.style.transition = ''; }, 450);
+  }
+
+  function update(){
+    const width = carousel.clientWidth;
+    currentTranslate = -index * width;
+    prevTranslate = currentTranslate;
+    slidesEl.style.transform = `translateX(${currentTranslate}px)`;
+    slides.forEach((s,i)=> s.setAttribute('aria-hidden', i === index ? 'false' : 'true'));
+    indicators.forEach((b,i)=>{ b.classList.toggle('active', i===index); b.setAttribute('aria-selected', i===index ? 'true' : 'false'); });
+    announceSlide();
+  }
+
+  function announceSlide(){
+    if (!live) return;
+    try {
+      const title = slides[index].querySelector('h2') ? slides[index].querySelector('h2').innerText.trim() : `Slide ${index+1}`;
+      live.textContent = `${title}`;
+    } catch (e) { /* ignore */ }
+  }
+
+  function next(){ snapToIndex(index+1); }
+  function prev(){ snapToIndex(index-1); }
+  function goTo(i){ snapToIndex(i); }
+
+  function start(){ if (prefersReduce) return; stop(); timer = setInterval(()=>{ next(); }, AUTOPLAY_MS); }
+  function stop(){ if (timer) { clearInterval(timer); timer = null; } }
+
+  function pauseForInteraction(){ stop(); clearTimeout(resumeTimeout); resumeTimeout = setTimeout(()=> start(), RESUME_DELAY); }
+
+  // Button events
+  if (nextBtn) nextBtn.addEventListener('click', ()=>{ next(); pauseForInteraction(); });
+  if (prevBtn) prevBtn.addEventListener('click', ()=>{ prev(); pauseForInteraction(); });
+
+  // Indicator events
+  indicators.forEach((btn, i)=>{
+    btn.addEventListener('click', ()=>{ goTo(i); pauseForInteraction(); btn.focus(); });
+    btn.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(i); pauseForInteraction(); btn.focus(); }
+    });
+  });
+
+  // Pointer-based dragging (supports mouse & touch)
+  function getEventX(e){ return (e.touches ? e.touches[0].clientX : (e.clientX !== undefined ? e.clientX : 0)); }
+
+  function onStart(e){
+    isDragging = true;
+    startX = getEventX(e);
+    lastPos = startX;
+    lastTime = Date.now();
+    const width = carousel.clientWidth;
+    prevTranslate = -index * width;
+    currentTranslate = prevTranslate;
+    setTranslate(currentTranslate, false);
+    stop(); // pause autoplay while interacting
+    // capture pointer if available
+    try { if (e.pointerId) carousel.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  function onMove(e){
+    if (!isDragging) return;
+    const x = getEventX(e);
+    const dx = x - startX;
+    const width = carousel.clientWidth;
+    currentTranslate = prevTranslate + dx;
+    // clamp a bit to avoid excessive overscroll
+    const maxOver = width * 0.4;
+    const leftBound = -((slides.length - 1) * width) - maxOver;
+    const rightBound = maxOver;
+    if (currentTranslate < leftBound) currentTranslate = leftBound;
+    if (currentTranslate > rightBound) currentTranslate = rightBound;
+    setTranslate(currentTranslate, false);
+    // track velocity
+    const now = Date.now();
+    lastPos = x;
+    lastTime = now;
+  }
+
+  function onEnd(e){
+    if (!isDragging) return;
+    isDragging = false;
+    const width = carousel.clientWidth;
+    const moved = currentTranslate - prevTranslate; // negative when moved left
+    // threshold to change slide: 25% width or a quick flick
+    const threshold = width * 0.25;
+    if (moved < -threshold) {
+      // moved left -> next
+      snapToIndex(index + 1);
+    } else if (moved > threshold) {
+      // moved right -> prev
+      snapToIndex(index - 1);
+    } else {
+      // snap back
+      snapToIndex(index);
+    }
+    pauseForInteraction();
+    // release pointer capture
+    try { if (e.pointerId) carousel.releasePointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  // Touch pointer bindings
+  carousel.addEventListener('touchstart', onStart, {passive:true});
+  carousel.addEventListener('touchmove', (e)=>{ onMove(e); }, {passive:false});
+  carousel.addEventListener('touchend', (e)=>{ onEnd(e); }, {passive:true});
+
+  // Pointer for mouse/pen
+  carousel.addEventListener('pointerdown', (e)=>{ onStart(e); function _move(ev){ onMove(ev); } function _up(ev){ onEnd(ev); carousel.removeEventListener('pointermove', _move); carousel.removeEventListener('pointerup', _up); carousel.removeEventListener('pointercancel', _up); } carousel.addEventListener('pointermove', _move); carousel.addEventListener('pointerup', _up); carousel.addEventListener('pointercancel', _up); });
+
+  // Pause on hover/focus (maintain previous behavior)
+  carousel.addEventListener('mouseenter', ()=>{ stop(); });
+  carousel.addEventListener('mouseleave', ()=>{ pauseForInteraction(); });
+  carousel.addEventListener('focusin', ()=>{ stop(); });
+  carousel.addEventListener('focusout', ()=>{ pauseForInteraction(); });
+
+  // Keyboard support when focused
+  carousel.addEventListener('keydown', (e)=>{ if (e.key === 'ArrowLeft') { prev(); pauseForInteraction(); } else if (e.key === 'ArrowRight') { next(); pauseForInteraction(); } });
+
+  // Apply background images from data attributes and make slides clickable
+  slides.forEach((s)=>{
+    const bg = s.dataset.bg;
+    const href = s.dataset.link;
+    if (bg) {
+      // set background-image but avoid double-quoting issues
+      s.style.backgroundImage = `url("${bg}")`;
+    }
+    if (href) {
+      s.addEventListener('click', (e)=>{
+        // if the click originated from an anchor inside, let it handle navigation
+        if (e.target.closest('a')) return;
+        if (href.indexOf('#category:') === 0) {
+          const name = decodeURIComponent(href.slice('#category:'.length));
+          if (window.showCategoryByName) {
+            window.showCategoryByName(name, true);
+          } else {
+            // Fallback: set hash and scroll to categories section
+            try {
+              location.hash = '#category:' + encodeURIComponent(name);
+              const sec = document.getElementById('categories-section') || document.getElementById('products');
+              if (sec) {
+                const header = document.querySelector('header');
+                const headerHeight = header ? header.offsetHeight : 0;
+                const targetY = Math.max(0, window.pageYOffset + sec.getBoundingClientRect().top - headerHeight - 12);
+                const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                window.scrollTo({ top: targetY, behavior: prefersReduced ? 'auto' : 'smooth' });
+              }
+            } catch (err) { location.hash = '#'; }
+          }
+        } else if (href.startsWith('#')) {
+          // smooth-scroll to anchor element below fixed header, if present
+          const target = document.querySelector(href);
+          if (target) {
+            const header = document.querySelector('header');
+            const headerHeight = header ? header.offsetHeight : 0;
+            const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const targetY = Math.max(0, window.pageYOffset + target.getBoundingClientRect().top - headerHeight - 12);
+            window.scrollTo({ top: targetY, behavior: prefersReduced ? 'auto' : 'smooth' });
+          } else {
+            window.location.href = href;
+          }
+        } else {
+          window.location.href = href;
+        }
+      });
+      s.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (href.indexOf('#category:') === 0) {
+            const name = decodeURIComponent(href.slice('#category:'.length));
+            if (window.showCategoryByName) window.showCategoryByName(name, true);
+          } else {
+            window.location.href = href;
+          }
+        }
+      });
+
+      // Ensure inner anchors are clickable on desktop: stop propagation and handle category anchors directly
+      Array.from(s.querySelectorAll('a')).forEach(a => {
+        a.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const h = a.getAttribute('href') || '';
+          if (h.indexOf('#category:') === 0) {
+            ev.preventDefault();
+            const name = decodeURIComponent(h.slice('#category:'.length));
+            if (window.showCategoryByName) {
+              window.showCategoryByName(name, true);
+            } else {
+              try { location.hash = '#category:' + encodeURIComponent(name); } catch(e) {}
+              const sec = document.getElementById('categories-section') || document.getElementById('products');
+              if (sec) {
+                const header = document.querySelector('header');
+                const headerHeight = header ? header.offsetHeight : 0;
+                const prefs = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                const targetY = Math.max(0, window.pageYOffset + sec.getBoundingClientRect().top - headerHeight - 12);
+                window.scrollTo({ top: targetY, behavior: prefs ? 'auto' : 'smooth' });
+              }
+            }
+          } else if (h.startsWith('#')) {
+            ev.preventDefault();
+            const target = document.querySelector(h);
+            if (target) {
+              const header = document.querySelector('header');
+              const headerHeight = header ? header.offsetHeight : 0;
+              const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+              const targetY = Math.max(0, window.pageYOffset + target.getBoundingClientRect().top - headerHeight - 12);
+              window.scrollTo({ top: targetY, behavior: prefersReduced ? 'auto' : 'smooth' });
+            } else {
+              window.location.href = h;
+            }
+          }
+        });
+        a.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            a.click();
+          }
+        });
+      });
+
+    }
+  });
+  // Initialize
+  update();
+  start();
+
+  // Recalculate on resize
+  window.addEventListener('resize', ()=>{ update(); });
+})();
+
+// Delegate clicks on anchors with href starting with '#category:' to open the category
+document.addEventListener('click', function(e) {
+  const a = e.target.closest && e.target.closest('a[href^="#category:"]');
+  if (!a) return;
+  try {
+    e.preventDefault();
+    const name = decodeURIComponent(a.getAttribute('href').slice('#category:'.length));
+    if (window.showCategoryByName) window.showCategoryByName(name, true);
+    else {
+      // fallback: set hash and scroll to categories
+      try { location.hash = '#category:' + encodeURIComponent(name); } catch(e){}
+      const sec = document.getElementById('categories-section') || document.getElementById('products');
+      if (sec) {
+        const header = document.querySelector('header');
+        const headerHeight = header ? header.offsetHeight : 0;
+        const prefs = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const targetY = Math.max(0, window.pageYOffset + sec.getBoundingClientRect().top - headerHeight - 12);
+        window.scrollTo({ top: targetY, behavior: prefs ? 'auto' : 'smooth' });
+      }
+    }
+  } catch (err) { console.error(err); }
+});
 
 // -------------------- End of script ---------------->

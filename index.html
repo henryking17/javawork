@@ -94,12 +94,48 @@
 
     <section id="home" class="hero">
         <div class="container">
-            <h2><b>Welcome to Cympet and Co. Nigeria Enterprises.</b></h2>
-            <p>Discover the latest in electronics technology. From cutting-edge gadgets to essential accessories, we have everything you need.</p>
-            <a href="#products" class="btn">Explore Products</a>
+            <!-- Swipable hero carousel: autoplay, swipe gestures, accessible controls -->
+            <div class="hero-carousel" id="heroCarousel" role="region"   aria-roledescription="carousel" aria-label="Promotional offers" tabindex="0">
+                <div class="slides" id="heroSlides">
+                    <div class="slide" id="hero-slide-0" data-index="0"  data-link="#products" role="group" aria-roledescription="slide" aria-label="Welcome slide" aria-hidden="false" tabindex="0">
+                        <div class="slide-inner">
+                            <h2><b>Welcome to Cympet and Co. Nigeria Enterprises.</b></h2>
+                            <p>Discover the latest in electronics. We Offer Home and Pickup Deliveries on Your Orders.</p>
+                        </div>
+                    </div>
+
+                    <div class="slide" id="hero-slide-1" data-index="1" data-bg="https://seeronlinemall.com/wp-content/uploads/2018/09/Elepaq2.5Manual.jpg" data-link="#product-generators" role="group" aria-roledescription="slide" aria-label="Featured generators" aria-hidden="true" tabindex="0">
+                        <div class="slide-inner">
+                            <h2><b>Power When You Need It — Generators Deals</b></h2>
+                            <p>Up to 15% off selected Elepaq and Sumec Firman generators. Limited time offer.</p>
+                            <a href="#product-generators" class="btn">Shop Generators</a>
+                        </div>
+                    </div>
+
+                    <div class="slide" id="hero-slide-2" data-index="2" data-bg="https://ng.jumia.is/unsafe/fit-in/500x500/filters:fill(white)/product/41/1976814/1.jpg?5522" data-link="#category:Television and Video" role="group" aria-roledescription="slide" aria-label="TV and Home Entertainment" aria-hidden="true" tabindex="0">
+                        <div class="slide-inner">
+                            <h2><b>Home Entertainment Sale — TVs & Sound Systems</b></h2>
+                            <p>Save on Hisense and LG televisions plus selected sound systems.</p>
+                            <a href="#category:Television and Video" class="btn">See Offers</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="carousel-controls">
+                    <button class="carousel-prev btn ghost" id="heroPrev" aria-label="Previous slide">‹</button>
+                    <button class="carousel-next btn ghost" id="heroNext" aria-label="Next slide">›</button>
+                </div>
+
+                <div class="carousel-indicators" id="heroIndicators" role="tablist" aria-label="Slide indicators">
+                    <button data-slide-to="0" class="indicator active" role="tab" aria-controls="hero-slide-0" aria-label="Go to slide 1" aria-selected="true"></button>
+                    <button data-slide-to="1" class="indicator" role="tab" aria-controls="hero-slide-1" aria-label="Go to slide 2" aria-selected="false"></button>
+                    <button data-slide-to="2" class="indicator" role="tab" aria-controls="hero-slide-2" aria-label="Go to slide 3" aria-selected="false"></button>
+                </div>
+
+                <div id="heroAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+            </div>
         </div>
     </section>
-
     <section id="products" class="products">
         <div class="container">
             <!-- Jumia-style categories bar (shows products per category; Featured remains unchanged) -->

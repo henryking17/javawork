@@ -587,8 +587,124 @@ document.addEventListener('DOMContentLoaded', () => {
     // support keyboard activation (Enter / Space)
     headerAnchor.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleNotificationsDropdown(); } });
   }
-});
 
+  // Wire site-wide auth buttons to Firebase (if available) and provide safe fallbacks
+  (function wireAuthButtonsWhenReady() {
+    function isWired(el) { try { return el && el.getAttribute && el.getAttribute('data-auth-wired') === '1'; } catch (e) { return false; } }
+    function markWired(el) { try { el && el.setAttribute && el.setAttribute('data-auth-wired', '1'); } catch (e) { } }
+
+    async function handleGoogleClick(e, btn) {
+      e && e.preventDefault && e.preventDefault();
+      try {
+        if (window.signInWithGoogle) {
+          const res = await window.signInWithGoogle();
+          if (res && res.success) {
+            sessionStorage.setItem('currentUser', JSON.stringify(res.user));
+            showNotification('Signed in successfully (Google)', 'success');
+            setTimeout(() => { window.location.href = 'index.html?login=success'; }, 600);
+            return;
+          }
+          // If Firebase reports configuration not found, disable the button and show guidance
+          if (res && (res.code === 'auth/configuration-not-found' || res.code === 'auth/operation-not-allowed')) {
+            if (btn && btn.setAttribute) { try { btn.disabled = true; } catch (e) {} }
+            const msg = 'Google sign-in is not enabled in Firebase Auth for this project.';
+            showNotification(msg, 'error');
+            return;
+          }
+
+          showNotification(res && res.error ? res.error : 'Google sign-in failed', 'error');
+          return;
+        }
+
+        // Legacy global firebase fallback (if present)
+        if (window.firebase && firebase.auth) {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          firebase.auth().signInWithPopup(provider).then(result => {
+            const user = result.user;
+            sessionStorage.setItem('currentUser', JSON.stringify({ id: user.uid, name: user.displayName, email: user.email }));
+            showNotification('Signed in successfully (Google)', 'success');
+            setTimeout(() => { window.location.href = 'index.html?login=success'; }, 600);
+          }).catch(err => {
+            console.error('Google sign-in (legacy) error', err);
+            showNotification(err && err.message ? err.message : 'Google sign-in failed', 'error');
+          });
+          return;
+        }
+
+        showNotification('Google sign-in is not configured on this site.', 'error');
+      } catch (err) {
+        console.error('Google sign-in error', err);
+        showNotification('Google sign-in failed', 'error');
+      }
+    }
+
+    async function handleSignupSubmit(e, form) {
+      e.preventDefault();
+      try {
+        const name = (document.getElementById('signup-name') || {}).value || '';
+        const email = (document.getElementById('signup-email') || {}).value || '';
+        const phone = (document.getElementById('signup-phone') || {}).value || '';
+        const password = (document.getElementById('signup-password') || {}).value || '';
+
+        if (window.signUpWithFirebase) {
+          const res = await window.signUpWithFirebase(name, email, password, phone);
+          if (res && res.success) {
+            sessionStorage.setItem('currentUser', JSON.stringify(res.user));
+            showNotification('Account created', 'success');
+            setTimeout(() => { window.location.href = 'index.html?signup=success'; }, 700);
+            return;
+          }
+          showNotification(res && res.error ? res.error : 'Signup failed', 'error');
+          return;
+        }
+
+        // fallback: leave form's existing handler (admin.html also has fallback)
+      } catch (err) {
+        console.error('Signup error', err);
+        showNotification('Signup failed', 'error');
+      }
+    }
+
+    async function handleLoginSubmit(e, form) {
+      e.preventDefault();
+      try {
+        const email = (document.getElementById('login-email') || {}).value || '';
+        const password = (document.getElementById('login-password') || {}).value || '';
+
+        if (window.signInWithFirebase) {
+          const res = await window.signInWithFirebase(email, password);
+          if (res && res.success) {
+            sessionStorage.setItem('currentUser', JSON.stringify(res.user));
+            showNotification('Logged in', 'success');
+            setTimeout(() => { window.location.href = 'index.html?login=success'; }, 600);
+            return;
+          }
+          showNotification(res && res.error ? res.error : 'Login failed', 'error');
+          return;
+        }
+
+        // fallback: leave existing local login behavior
+      } catch (err) {
+        console.error('Login error', err);
+        showNotification('Login failed', 'error');
+      }
+    }
+
+    // Attach to possible buttons/forms across the site
+    try {
+      const googleBtns = Array.from(document.querySelectorAll('#googleLoginBtn, #gSignBtn, .google-login-btn'));
+      googleBtns.forEach(btn => {
+        if (!isWired(btn)) { btn.addEventListener('click', (e) => handleGoogleClick(e, btn)); markWired(btn); }
+      });
+
+      const signup = document.getElementById('signupForm');
+      if (signup && !isWired(signup)) { signup.addEventListener('submit', (e) => handleSignupSubmit(e, signup)); markWired(signup); }
+
+      const login = document.getElementById('loginForm');
+      if (login && !isWired(login)) { login.addEventListener('submit', (e) => handleLoginSubmit(e, login)); markWired(login); }
+    } catch (e) { /* ignore */ }
+  })();
+});
 
 // Update admin notifications badge count
 function updateNotificationsBadge() {
@@ -4852,5 +4968,34 @@ document.addEventListener('click', function(e) {
     }
   } catch (err) { console.error(err); }
 });
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAtO7LjfyJYVk5CK00EEEDxFtr8IyLhsM0",
+  authDomain: "cympetandconigeriaenterprise.firebaseapp.com",
+  projectId: "cympetandconigeriaenterprise",
+  storageBucket: "cympetandconigeriaenterprise.firebasestorage.app",
+  messagingSenderId: "981106706732",
+  appId: "1:981106706732:web:85662b3bb2826985a2c489",
+  measurementId: "G-FXSZ2SK5SW"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // User is signed in
+    document.getElementById("welcomeMsg").innerText = `Welcome, ${user.displayName || user.email}`;
+  } else {
+    // No user signed in
+    document.getElementById("welcomeMsg").innerText = "Please log in.";
+  }
+});
+
+
+
 
 // -------------------- End of script ---------------->

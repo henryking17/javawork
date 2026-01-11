@@ -156,6 +156,99 @@
       text-decoration: underline;
     }
   </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, fetchSignInMethodsForEmail, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+    const firebaseConfig = {
+  apiKey: "AIzaSyAtO7LjfyJYVk5CK00EEEDxFtr8IyLhsM0",
+  authDomain: "cympetandconigeriaenterprise.firebaseapp.com",
+  projectId: "cympetandconigeriaenterprise",
+  storageBucket: "cympetandconigeriaenterprise.firebasestorage.app",
+  messagingSenderId: "981106706732",
+  appId: "1:981106706732:web:85662b3bb2826985a2c489",
+  measurementId: "G-FXSZ2SK5SW"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Expose helper functions for the page and update sessionStorage on auth changes
+    window.signUpWithFirebase = async function(name, email, password, phone) {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+        try { if (name) await updateProfile(user, { displayName: name }); } catch (e) { /* ignore */ }
+        // store extra profile locally (phone)
+        try { localStorage.setItem('firebase_profile_' + user.uid, JSON.stringify({ name: name || user.displayName || '', phone: phone || '' })); } catch (e) {}
+        const profile = { id: user.uid, name: name || user.displayName || '', email: user.email, phone: phone || '' };
+        sessionStorage.setItem('currentUser', JSON.stringify(profile));
+        return { success: true, user: profile };
+      } catch (err) {
+        return { success: false, error: err.message || String(err), code: err && err.code ? err.code : null };
+      }
+    };
+
+    window.signInWithFirebase = async function(email, password) {
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+        const stored = JSON.parse(localStorage.getItem('firebase_profile_' + user.uid) || '{}');
+        const profile = { id: user.uid, name: user.displayName || stored.name || '', email: user.email, phone: stored.phone || '' };
+        sessionStorage.setItem('currentUser', JSON.stringify(profile));
+        return { success: true, user: profile };
+      } catch (err) {
+        return { success: false, error: err.message || String(err), code: err && err.code ? err.code : null };
+      }
+    };
+
+    window.signInWithGoogle = async function() {
+      try {
+        const res = await signInWithPopup(auth, provider);
+        const user = res.user;
+        const profile = { id: user.uid, name: user.displayName || '', email: user.email, phone: '' };
+        sessionStorage.setItem('currentUser', JSON.stringify(profile));
+        return { success: true, user: profile };
+      } catch (err) {
+        return { success: false, error: err.message || String(err), code: err && err.code ? err.code : null };
+      }
+    };
+
+    window.signOutFirebase = async function() {
+      try {
+        await signOut(auth);
+      } catch (e) { /* ignore */ }
+      sessionStorage.removeItem('currentUser');
+      return { success: true };
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const stored = JSON.parse(localStorage.getItem('firebase_profile_' + user.uid) || '{}');
+        const profile = { id: user.uid, name: user.displayName || stored.name || '', email: user.email, phone: stored.phone || '' };
+        sessionStorage.setItem('currentUser', JSON.stringify(profile));
+      } else {
+        sessionStorage.removeItem('currentUser');
+      }
+    });
+
+    // Basic runtime check for Firebase Auth configuration: attempt to fetch sign-in methods for a dummy email.
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        if (typeof fetchSignInMethodsForEmail === 'function') {
+          fetchSignInMethodsForEmail(auth, 'no-reply@example.cympet').catch(err => {
+            if (err && (err.code === 'auth/configuration-not-found' || err.code === 'auth/operation-not-allowed')) {
+              const fs = document.getElementById('firebaseStatus');
+              if (fs) { fs.style.display = ''; fs.textContent = 'Firebase Auth appears not configured (Email/Password or Google sign-in). The page will fallback to local authentication.'; }
+              const gBtn = document.getElementById('gSignBtn'); if (gBtn) gBtn.disabled = true;
+              console.warn('Firebase Auth not configured:', err.code || err.message || err);
+            }
+          });
+        }
+      } catch (e) { /* ignore */ }
+    });
+  </script>
 </head>
 <body>
   <main class="card" aria-labelledby="form-title">
@@ -191,6 +284,12 @@
       <p class="notice">Use your registered email and password to login.</p>
     </form>
 
+    <div style="margin-top: 12px; text-align: center;">
+      <button id="gSignBtn" class="btn ghost" type="button">Continue with Google</button>
+      <p class="notice">Or continue with Google</p>
+      <div id="firebaseStatus" class="notice" style="margin-top:6px; display:none;"></div>
+    </div>
+
     <!-- SIGNUP FORM -->
     <form id="signupForm" class="auth-form hidden" novalidate>
       <div class="field">
@@ -204,7 +303,6 @@
         <input class="input" id="signup-email" name="email" type="email" autocomplete="email" required />
         <div class="error" id="signupEmailError"></div>
       </div>
-
       <div class="field">
         <label class="label" for="signup-phone">Phone Number</label>
         <input class="input" id="signup-phone" name="phone" type="tel" autocomplete="tel" required />
@@ -338,7 +436,7 @@
       return valid;
     }
 
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       loginBtn.disabled = true;
 
@@ -351,29 +449,43 @@
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
 
-        // Find user
-        const user = users.find(u => u.email === email && u.pwd === password);
-        
-        if (!user) {
-          setLoginAlert('error', 'Invalid email or password.');
+        // Prefer Firebase sign-in when available
+        if (window.signInWithFirebase) {
+          const res = await window.signInWithFirebase(email, password);
+          if (!res || !res.success) {
+            // If Firebase Auth is not configured, fallback to local user store
+            if (res && (res.code === 'auth/configuration-not-found' || res.code === 'auth/operation-not-allowed')) {
+              document.getElementById('firebaseStatus').style.display = '';
+              document.getElementById('firebaseStatus').textContent = 'Firebase Auth not configured. Falling back to local authentication.';
+              // try local sign-in
+              const user = users.find(u => u.email === email && u.pwd === password);
+              if (user) {
+                const userSession = { id: user.id, name: user.name, email: user.email, phone: user.phone, isAdmin: user.isAdmin || false, loginTime: new Date().toISOString() };
+                sessionStorage.setItem('currentUser', JSON.stringify(userSession));
+                setLoginAlert('success', 'Login successful (local fallback)! Redirecting...');
+                setTimeout(() => { window.location.href = 'index.html?login=success'; }, 800);
+                return;
+              }
+              setLoginAlert('error', 'Invalid email or password. (Firebase not configured)');
+              return;
+            }
+
+            setLoginAlert('error', res && res.error ? res.error : 'Invalid email or password.');
+            return;
+          }
+          setLoginAlert('success', 'Login successful! Redirecting...');
+          setTimeout(() => { window.location.href = 'index.html?login=success'; }, 800);
           return;
         }
 
-        // Store user session
-        const userSession = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          isAdmin: user.isAdmin || false,
-          loginTime: new Date().toISOString()
-        };
+        // Fallback to local users
+        const user = users.find(u => u.email === email && u.pwd === password);
+        if (!user) { setLoginAlert('error', 'Invalid email or password.'); return; }
+
+        const userSession = { id: user.id, name: user.name, email: user.email, phone: user.phone, isAdmin: user.isAdmin || false, loginTime: new Date().toISOString() };
         sessionStorage.setItem('currentUser', JSON.stringify(userSession));
-        
         setLoginAlert('success', 'Login successful! Redirecting...');
-        setTimeout(() => {
-          window.location.href = 'index.html?login=success';
-        }, 1000);
+        setTimeout(() => { window.location.href = 'index.html?login=success'; }, 800);
       } catch (err) {
         setLoginAlert('error', 'An error occurred. Please try again.');
         console.error(err);
@@ -458,7 +570,7 @@
       return valid;
     }
 
-    signupForm.addEventListener('submit', (e) => {
+    signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       signupBtn.disabled = true;
 
@@ -473,7 +585,62 @@
         const phone = document.getElementById('signup-phone').value.trim();
         const password = document.getElementById('signup-password').value;
 
-        // Create new user
+        // Prefer Firebase signup when available
+        if (window.signUpWithFirebase) {
+          const res = await window.signUpWithFirebase(name, email, password, phone);
+          if (!res || !res.success) {
+            // If Firebase Auth is not configured for this project, fallback to local store
+            if (res && (res.code === 'auth/configuration-not-found' || res.code === 'auth/operation-not-allowed')) {
+              document.getElementById('firebaseStatus').style.display = '';
+              document.getElementById('firebaseStatus').textContent = 'Firebase Auth not configured (Email/Password). Account will be created locally instead.';
+              // Create local fallback account
+              const newUser = {
+                id: 'u_fallback_' + Date.now(),
+                name: name,
+                email: email,
+                phone: phone,
+                pwd: password,
+                created: new Date().toISOString(),
+                isAdmin: false
+              };
+              users.push(newUser);
+              localStorage.setItem('site_users', JSON.stringify(users));
+              const customerNotif = {
+                id: 'cnotif_' + Date.now(),
+                userId: newUser.id,
+                type: 'account_created',
+                title: '✨ Welcome to Cympet and Co!',
+                message: `Your account has been created successfully. Welcome ${name}!`,
+                timestamp: new Date().toISOString(),
+                read: false
+              };
+              localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify([customerNotif]));
+              sessionStorage.setItem('currentUser', JSON.stringify({ id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone }));
+              setSignupAlert('success', 'Account created locally (Firebase not configured). Redirecting...');
+              setTimeout(() => { window.location.href = 'index.html?signup=success'; }, 1000);
+              return;
+            }
+            setSignupAlert('error', res && res.error ? res.error : 'Failed to create account.');
+            return;
+          }
+          // create a lightweight customer notification
+          const customerNotif = {
+            id: 'cnotif_' + Date.now(),
+            userId: res.user.id,
+            type: 'account_created',
+            title: '✨ Welcome to Cympet and Co!',
+            message: `Your account has been created successfully. Welcome ${name}!`,
+            timestamp: new Date().toISOString(),
+            read: false
+          };
+          localStorage.setItem('customer_notifications_' + res.user.id, JSON.stringify([customerNotif]));
+
+          setSignupAlert('success', 'Account created successfully! Redirecting...');
+          setTimeout(() => { window.location.href = 'index.html?signup=success'; }, 1000);
+          return;
+        }
+
+        // Fallback: use local storage user store
         const newUser = {
           id: 'u_' + Date.now(),
           name: name,
@@ -487,94 +654,19 @@
         users.push(newUser);
         localStorage.setItem('site_users', JSON.stringify(users));
 
-        // Create and save notification for admin
-        const notification = {
-          id: 'notif_' + Date.now(),
-          type: 'new_account',
-          title: 'New Account Created',
-          message: `${name} (${email}) has created a new account`,
-          customerName: name,
-          customerEmail: email,
-          customerPhone: phone,
-          timestamp: new Date().toISOString(),
-          read: false
-        };
-        let notifications = JSON.parse(localStorage.getItem('admin_notifications') || '[]');
-        notifications.unshift(notification);
-        localStorage.setItem('admin_notifications', JSON.stringify(notifications));
-
-        // Send email to admin via Web3Forms (non-blocking)
-        try {
-          // Only attempt to send if the developer replaced the placeholder access key
-          if (WEB3FORMS_ACCESS_KEY && WEB3FORMS_ACCESS_KEY !== '22b0c187-7f5e-48e5-91cf-d3481d9cd44f') {
-            const payload = {
-              access_key: WEB3FORMS_ACCESS_KEY,
-              to: ADMIN_NOTIFICATION_EMAIL,
-              
-              subject: `New account created: ${name}`,
-              name: name,
-              email: email,
-              message: `A new account was created.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nTime: ${new Date().toISOString()}`
-            };
-
-            fetch('https://api.web3forms.com/submit', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            })
-            .then(async (res) => {
-              const body = await res.json().catch(() => ({}));
-              if (res.ok && (body.success === true || body.success === 'true' || body.status === 'success')) {
-                console.info('Web3Forms: admin notification sent', body);
-                // record status for debugging
-                localStorage.setItem('last_admin_email_status', JSON.stringify({ok: true, body: body, time: Date.now()}));
-                // update signup alert briefly (non-blocking)
-                try { setSignupAlert('success', 'Account created successfully! Admin notified by email.'); } catch (e) { /* ignore */ }
-              } else {
-                console.warn('Web3Forms: unexpected response', res.status, body);
-                localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, status: res.status, body: body, time: Date.now()}));
-                try { setSignupAlert('success', 'Account created. Failed to send admin email (check console).'); } catch (e) { /* ignore */ }
-              }
-            })
-            .catch(err => {
-              console.warn('Failed to send Web3Forms notification', err);
-              localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: String(err), time: Date.now()}));
-              try { setSignupAlert('success', 'Account created. Failed to send admin email (check console).'); } catch (e) { /* ignore */ }
-            });
-          } else {
-            console.info('Web3Forms not configured. Set WEB3FORMS_ACCESS_KEY to enable admin emails.');
-            localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: 'not_configured', time: Date.now()}));
-          }
-        } catch (err) {
-          console.warn('Web3Forms notify error', err);
-          localStorage.setItem('last_admin_email_status', JSON.stringify({ok: false, error: String(err), time: Date.now()}));
-        }
-
-        // Create and save notification for customer
         const customerNotif = {
           id: 'cnotif_' + Date.now(),
-          userId: 'u_' + Date.now(),
+          userId: newUser.id,
           type: 'account_created',
           title: '✨ Welcome to Cympet and Co!',
           message: `Your account has been created successfully. Welcome ${name}!`,
           timestamp: new Date().toISOString(),
           read: false
         };
-
-        // Auto-login new user
-        const userSession = {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          phone: newUser.phone,
-          isAdmin: false,
-          loginTime: new Date().toISOString()
-        };
-        
-        // Save customer notification with their user ID - replace any existing notifications so only welcome remains
-        customerNotif.userId = newUser.id;
         localStorage.setItem('customer_notifications_' + newUser.id, JSON.stringify([customerNotif]));
-        
+
+        // Auto-login new user (fallback)
+        const userSession = { id: newUser.id, name: newUser.name, email: newUser.email, phone: newUser.phone, isAdmin: false, loginTime: new Date().toISOString() };
         sessionStorage.setItem('currentUser', JSON.stringify(userSession));
 
         setSignupAlert('success', 'Account created successfully! Redirecting...');
@@ -588,6 +680,99 @@
         signupBtn.disabled = false;
       }
     });
+
+    // Attempt to hydrate currentUser from server session (if server auth in use)
+    if (!currentUser) {
+      try {
+        fetch('/auth/me', { credentials: 'same-origin' }).then(r => r.json()).then(data => {
+          if (data && data.user) {
+            sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+            window.location.reload();
+            return;
+          }
+          // If no server session, check Firebase-initialized session (auth module will sync sessionStorage)
+          const fb = sessionStorage.getItem('currentUser');
+          if (fb) { window.location.reload(); }
+        }).catch(() => {
+          const fb = sessionStorage.getItem('currentUser');
+          if (fb) { window.location.reload(); }
+        });
+      } catch (e) { const fb = sessionStorage.getItem('currentUser'); if (fb) window.location.reload(); }
+    }
+
+    // Wire up Google sign-in button if available
+    try {
+      const gBtn = document.getElementById('gSignBtn');
+      if (gBtn) {
+        gBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          try {
+            if (window.signInWithGoogle) {
+              const res = await window.signInWithGoogle();
+              if (res && res.success) { window.location.href = 'index.html?login=success'; }
+              else {
+                setLoginAlert('error', res && res.error ? res.error : 'Google sign-in failed');
+                if (res && (res.code === 'auth/configuration-not-found' || res.code === 'auth/operation-not-allowed')) {
+                  const fs = document.getElementById('firebaseStatus');
+                  if (fs) { fs.style.display = ''; fs.textContent = 'Google sign-in is not enabled in Firebase Auth for this project.'; }
+                  try { gBtn.disabled = true; } catch (e) {}
+                }
+              }
+            } else {
+              setLoginAlert('error', 'Google sign-in not configured');
+            }
+          } catch (err) { console.error(err); setLoginAlert('error', 'Google sign-in failed'); }
+        });
+      }
+    } catch (e) { /* ignore */ }
+    // Initialize Google Sign-In after fetching server config (robust: wait for GSI to load)
+    (function initGoogleSignIn() {
+      try {
+        fetch('/config').then(r => r.json()).then(cfg => {
+          if (!cfg || !cfg.googleClientId) return;
+
+          const tryInit = (attempts = 0) => {
+            if (window.google && google.accounts && google.accounts.id) {
+              const onGoogleToken = async (response) => {
+                try {
+                  const id_token = response && response.credential;
+                  if (!id_token) return setLoginAlert('error', 'Google sign-in failed (no token).');
+
+                  const res = await fetch('/auth/google', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id_token }) });
+                  const body = await res.json().catch(() => ({}));
+                  if (res.ok && body && body.success && body.user) {
+                    sessionStorage.setItem('currentUser', JSON.stringify(body.user));
+                    window.location.href = 'index.html?login=success';
+                  } else {
+                    setLoginAlert('error', (body && body.error) || 'Google sign-in failed');
+                  }
+                } catch (err) {
+                  console.error('Google sign-in error', err);
+                  setLoginAlert('error', 'Google sign-in error');
+                }
+              };
+
+              try {
+                google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: onGoogleToken });
+                try { google.accounts.id.renderButton(document.getElementById('gSignInBtn'), { theme: 'outline', size: 'large' }); } catch (e) { /* ignore render errors */ }
+              } catch (e) {
+                console.warn('Error initializing GSI:', e);
+              }
+              return;
+            }
+
+            if (attempts < 30) {
+              setTimeout(() => tryInit(attempts + 1), 100);
+            } else {
+              console.warn('Google Identity Services did not load in time; signin button may not appear.');
+            }
+          };
+
+          tryInit(0);
+        }).catch((err) => { console.warn('Failed to fetch /config for Google Sign-In', err); });
+      } catch (e) { console.warn('Error initializing Google Sign-In', e); }
+    })();
+
 
     // Check if already logged in
     if (currentUser) {
@@ -608,7 +793,12 @@
         </main>
       `;
 
-      function logout() {
+      async function logout() {
+        try {
+          // Prefer Firebase sign-out when available
+          if (window.signOutFirebase) await window.signOutFirebase();
+          else await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+        } catch (e) { /* ignore */ }
         sessionStorage.removeItem('currentUser');
         window.location.href = 'admin.html';
       }

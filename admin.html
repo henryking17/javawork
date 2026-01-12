@@ -156,10 +156,14 @@
       text-decoration: underline;
     }
   </style>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, fetchSignInMethodsForEmail, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, fetchSignInMethodsForEmail, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
+
+    
     const firebaseConfig = {
   apiKey: "AIzaSyAtO7LjfyJYVk5CK00EEEDxFtr8IyLhsM0",
   authDomain: "cympetandconigeriaenterprise.firebaseapp.com",
@@ -173,6 +177,17 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
+
+    auth.onAuthStateChanged(user => {
+  if (user) {
+    // User is signed in
+    document.getElementById("welcomeMsg").innerText = `Welcome, ${user.displayName || user.email}`;
+  } else {
+    // No user signed in
+    document.getElementById("welcomeMsg").innerText = "Please log in.";
+  }
+});
+
 
     // Expose helper functions for the page and update sessionStorage on auth changes
     window.signUpWithFirebase = async function(name, email, password, phone) {
@@ -246,6 +261,15 @@
       return { success: true };
     };
 
+    window.resetPasswordWithFirebase = async function(email) {
+      try {
+        await sendPasswordResetEmail(auth, email);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message || String(err), code: err && err.code ? err.code : null };
+      }
+    };
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         const stored = JSON.parse(localStorage.getItem('firebase_profile_' + user.uid) || '{}');
@@ -305,6 +329,9 @@
 
       <div class="alert" id="loginAlert" role="status" aria-live="polite"></div>
       <p class="notice">Use your registered email and password to login.</p>
+      <div style="text-align: center; margin-top: 8px;">
+        <button type="button" class="link" onclick="switchTab('forgot')">Forgot password?</button>
+      </div>
     </form>
 
     <div style="margin-top: 12px; text-align: center;">
@@ -352,6 +379,24 @@
       <p class="notice">Create an account to save your preferences and checkout faster.</p>
     </form>
 
+    <!-- FORGOT PASSWORD FORM -->
+    <form id="forgotForm" class="auth-form hidden" novalidate>
+      <div class="field">
+        <label class="label" for="forgot-email">Email Address</label>
+        <input class="input" id="forgot-email" name="email" type="email" autocomplete="email" required />
+        <div class="error" id="forgotEmailError"></div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn" id="forgotBtn">Send Reset Link</button>
+      </div>
+
+      <div class="alert" id="forgotAlert" role="status" aria-live="polite"></div>
+      <p class="notice">We'll send a password reset link to your email. Check your spam folder if you don't see it.</p>
+      <div style="text-align: center; margin-top: 8px;">
+        <button type="button" class="link" onclick="switchTab('login')">← Back to Login</button>
+      </div>
+
     <div class="back-link">
       <a href="index.html">← Back to Store</a>
     </div>
@@ -394,6 +439,7 @@
     function switchTab(tab) {
       const loginForm = document.getElementById('loginForm');
       const signupForm = document.getElementById('signupForm');
+      const forgotForm = document.getElementById('forgotForm');
       const loginTabBtn = document.getElementById('loginTabBtn');
       const signupTabBtn = document.getElementById('signupTabBtn');
       const formTitle = document.getElementById('form-title');
@@ -402,17 +448,27 @@
       if (tab === 'login') {
         loginForm.classList.remove('hidden');
         signupForm.classList.add('hidden');
+        forgotForm.classList.add('hidden');
         loginTabBtn.classList.add('active');
         signupTabBtn.classList.remove('active');
         formTitle.textContent = 'Welcome back';
         formSubtitle.textContent = 'Sign in to continue';
-      } else {
+      } else if (tab === 'signup') {
         signupForm.classList.remove('hidden');
         loginForm.classList.add('hidden');
+        forgotForm.classList.add('hidden');
         signupTabBtn.classList.add('active');
         loginTabBtn.classList.remove('active');
         formTitle.textContent = 'Create Account';
         formSubtitle.textContent = 'Join us today';
+      } else if (tab === 'forgot') {
+        forgotForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+        signupForm.classList.add('hidden');
+        loginTabBtn.classList.remove('active');
+        signupTabBtn.classList.remove('active');
+        formTitle.textContent = 'Reset Password';
+        formSubtitle.textContent = 'Enter your email address';
       }
     }
 
@@ -701,6 +757,116 @@
         console.error(err);
       } finally {
         signupBtn.disabled = false;
+      }
+    });
+
+    // FORGOT PASSWORD FORM
+    const forgotForm = document.getElementById('forgotForm');
+    const forgotBtn = document.getElementById('forgotBtn');
+
+    function setForgotAlert(type, message) {
+      const alert = document.getElementById('forgotAlert');
+      alert.className = 'alert ' + type;
+      alert.textContent = message;
+    }
+
+    function clearForgotErrors() {
+      document.getElementById('forgotEmailError').textContent = '';
+      document.getElementById('forgotAlert').className = 'alert';
+      document.getElementById('forgotAlert').textContent = '';
+    }
+
+    function validateForgotEmail() {
+      clearForgotErrors();
+      let valid = true;
+      const email = document.getElementById('forgot-email').value.trim();
+
+      if (!email) {
+        document.getElementById('forgotEmailError').textContent = 'Email is required.';
+        valid = false;
+      } else if (!email.includes('@')) {
+        document.getElementById('forgotEmailError').textContent = 'Please enter a valid email.';
+        valid = false;
+      }
+      return valid;
+    }
+
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      forgotBtn.disabled = true;
+
+      try {
+        if (!validateForgotEmail()) {
+          setForgotAlert('error', 'Please fix the error above.');
+          return;
+        }
+
+        const email = document.getElementById('forgot-email').value.trim();
+
+        // Try Firebase password reset first
+        if (window.resetPasswordWithFirebase) {
+          const res = await window.resetPasswordWithFirebase(email);
+          if (res && res.success) {
+            setForgotAlert('success', 'Password reset link sent! Check your email.');
+            document.getElementById('forgot-email').value = '';
+            setTimeout(() => { switchTab('login'); }, 2000);
+            return;
+          } else if (res && (res.code === 'auth/configuration-not-found' || res.code === 'auth/operation-not-allowed' || res.code === 'auth/user-not-found')) {
+            // Firebase not configured or user not found; fallback to local
+            const user = users.find(u => u.email === email);
+            if (!user) {
+              setForgotAlert('error', 'No account found with that email address. (Local fallback)');
+              return;
+            }
+            // Generate a temporary password reset token (valid for 1 hour)
+            const resetToken = 'reset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const resetData = {
+              token: resetToken,
+              email: email,
+              userId: user.id,
+              expiresAt: Date.now() + 3600000 // 1 hour
+            };
+            localStorage.setItem('password_reset_' + resetToken, JSON.stringify(resetData));
+
+            // In production, this would send an email with a link like:
+            // https://yoursite.com/reset-password.html?token=reset_xxxxx
+            // For now, show the token in localStorage for testing
+            console.log('Password reset token (for testing):', resetToken);
+            setForgotAlert('success', 'Password reset link sent! (Check console or check email in production)');
+            document.getElementById('forgot-email').value = '';
+            setTimeout(() => { switchTab('login'); }, 2000);
+            return;
+          }
+          setForgotAlert('error', res && res.error ? res.error : 'Failed to send reset link.');
+          return;
+        }
+
+        // Fallback: local password reset
+        const user = users.find(u => u.email === email);
+        if (!user) {
+          setForgotAlert('error', 'No account found with that email address.');
+          return;
+        }
+
+        // Generate a temporary reset token
+        const resetToken = 'reset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const resetData = {
+          token: resetToken,
+          email: email,
+          userId: user.id,
+          expiresAt: Date.now() + 3600000
+        };
+        localStorage.setItem('password_reset_' + resetToken, JSON.stringify(resetData));
+
+        console.log('Password reset token (for testing):', resetToken);
+        setForgotAlert('success', 'Password reset link sent! (Check console for token in testing)');
+        document.getElementById('forgot-email').value = '';
+        setTimeout(() => { switchTab('login'); }, 2000);
+      } catch (err) {
+        setForgotAlert('error', 'An error occurred. Please try again.');
+        console.error(err);
+      } finally {
+        forgotBtn.disabled = false;
       }
     });
 

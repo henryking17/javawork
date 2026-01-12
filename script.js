@@ -5266,31 +5266,7 @@ document.addEventListener('click', function(e) {
   } catch (err) { console.error(err); }
 });
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAtO7LjfyJYVk5CK00EEEDxFtr8IyLhsM0",
-  authDomain: "cympetandconigeriaenterprise.firebaseapp.com",
-  projectId: "cympetandconigeriaenterprise",
-  storageBucket: "cympetandconigeriaenterprise.firebasestorage.app",
-  messagingSenderId: "981106706732",
-  appId: "1:981106706732:web:85662b3bb2826985a2c489",
-  measurementId: "G-FXSZ2SK5SW"
-};
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-auth.onAuthStateChanged(user => {
-  if (user) {
-    // User is signed in
-    document.getElementById("welcomeMsg").innerText = `Welcome, ${user.displayName || user.email}`;
-  } else {
-    // No user signed in
-    document.getElementById("welcomeMsg").innerText = "Please log in.";
-  }
-});
 
 
 

@@ -4371,6 +4371,9 @@ function showSpecs() {
     document.getElementById('modal-variants').style.display = 'none';
     specsContainer.style.display = 'block';
 
+    // expand modal for specs view
+    if (modal && !modal.classList.contains('specs-open')) modal.classList.add('specs-open');
+
     // Small delay to ensure elements are attached before wiring events
     setTimeout(() => {
         const backBtn = document.getElementById('spec-back-btn');
@@ -4378,6 +4381,7 @@ function showSpecs() {
             backBtn.addEventListener('click', () => {
                 document.getElementById('product-details').style.display = 'block';
                 specsContainer.style.display = 'none';
+                if (modal && modal.classList.contains('specs-open')) modal.classList.remove('specs-open');
                 // Return focus to modal title for accessibility
                 try { document.getElementById('modal-title').focus(); } catch (e) {}
             });

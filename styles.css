@@ -1218,7 +1218,10 @@ nav ul.show {
 
 /* Rich product specifications view */
 .specs-view {
-    padding: 8px 6px 0 6px;
+    padding: 12px; 
+    background: linear-gradient(180deg, #fff, #fbfbfd);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(16,24,40,0.06);
 }
 .specs-grid {
     display: grid;
@@ -1226,17 +1229,23 @@ nav ul.show {
     gap: 18px;
     align-items: start;
 }
+.specs-image { display:flex; align-items:flex-start; justify-content:center; }
 .specs-image img { width: 100%; height: auto; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
-.specs-content { text-align: left; }
-.specs-content h3 { margin-top: 0; margin-bottom: 6px; font-size: 1.2rem; }
+.specs-content { text-align: left; display:flex; flex-direction:column; }
+.specs-content h3 { margin-top: 0; margin-bottom: 6px; font-size: 1.25rem; }
 .specs-content .muted { color: #666; margin-bottom: 8px; font-size: 0.95rem; }
-.specs-dl { display: block; margin: 0; }
+/* Make the details panel scrollable independently of the modal */
+.specs-content .specs-dl { display:block; margin:0; overflow-y:auto; padding-right:6px; max-height: calc(70vh - 180px); }
 .specs-dl .spec-row { display:flex; gap:12px; padding:8px 10px; border-radius:6px; align-items:center; }
-.specs-dl .spec-row dt { width: 45%; font-weight:700; color:#222; }
-.specs-dl .spec-row dd { margin:0; color:#333; width:55%; }
+.specs-dl .spec-row dt { width: 42%; font-weight:700; color:#222; }
+.specs-dl .spec-row dd { margin:0; color:#333; width:58%; }
 .specs-dl .spec-row:nth-child(odd) { background: #fbfbfb; }
-.spec-actions { margin-top:12px; display:flex; gap:10px; align-items:center; }
+/* Sticky action bar so Buy & Back remain visible while scrolling */
+.spec-actions { margin-top:12px; display:flex; gap:10px; align-items:center; justify-content:flex-end; position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.98)); padding-top:8px; padding-bottom:8px; }
 .spec-actions .btn { padding: 0.55rem 1rem; border-radius:8px; }
+
+/* When specs are open, allow a wider modal for a more immersive look */
+.modal.specs-open .modal-content { max-width: 940px; width: 92%; margin: 6% auto; }
 
 @media (max-width: 720px) {
     .specs-grid { grid-template-columns: 1fr; }
@@ -1244,7 +1253,7 @@ nav ul.show {
     .specs-dl .spec-row dt { width: 100%; }
     .specs-dl .spec-row dd { width: 100%; }
     .modal-content { width: 92%; max-width: 720px; margin: 8% auto; }
-}
+} 
 
 .modal-image .placeholder-image {
     font-size: 5rem;

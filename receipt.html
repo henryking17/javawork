@@ -41,15 +41,52 @@
 
     function findOrder(orderId) {
       if (!orderId) return null;
-      
-      const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
-      const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
-      
-      // Find order in localStorage
-      const order = paid.find(o => o.orderId === orderId) || 
-                    cod.find(o => o.orderId === orderId) || 
-                    null;
-      return order;
+      // Normalize the search key
+      const needle = String(orderId);
+
+      // Try user-scoped storage first (if available)
+      const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+      const uid = currentUserData ? (currentUserData.email || currentUserData.id) : null;
+
+      const triedKeys = [];
+      if (uid) triedKeys.push(`paid_orders_${uid}`, `cash_orders_${uid}`);
+      triedKeys.push('paid_orders', 'cash_orders');
+
+      const matches = (o) => {
+        if (!o) return false;
+        // Match orderId or payment_reference (some flows use that)
+        if (o.orderId && String(o.orderId) === needle) return true;
+        if (o.payment_reference && String(o.payment_reference) === needle) return true;
+        // Some older records may store id under different keys
+        if (o.id && String(o.id) === needle) return true;
+        return false;
+      };
+
+      // Search the most-likely keys first
+      for (const key of triedKeys) {
+        try {
+          const arr = JSON.parse(localStorage.getItem(key) || '[]');
+          const found = arr.find(matches);
+          if (found) return found;
+        } catch (e) { /* ignore malformed entries */ }
+      }
+
+      // As a last resort, scan all paid_/cash_ keys across localStorage (covers per-user keys when session is missing)
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (!/^paid_orders(_.*)?$/.test(key) && !/^cash_orders(_.*)?$/.test(key)) continue;
+          if (triedKeys.includes(key)) continue; // already tried
+          try {
+            const arr = JSON.parse(localStorage.getItem(key) || '[]');
+            const found = arr.find(matches);
+            if (found) return found;
+          } catch (e) { /* ignore malformed entries */ }
+        }
+      } catch (e) { /* ignore localStorage iteration errors */ }
+
+      return null;
     }
 
     (function render() {
@@ -63,7 +100,7 @@
       
       const order = findOrder(orderId);
       if (!order) {
-        root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong></div>`;
+        root.innerHTML = `<div style="color:#9ca3af;">Receipt not found for Order ID: <strong>${orderId}</strong> — If this was made under your account, open the site and log in, then try viewing the receipt again.</div>`;
         return;
       }
 

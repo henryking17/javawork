@@ -27,7 +27,7 @@ try {
 
 const app = express();
 app.use(express.json());
-app.use(cors()); // enable CORS for dev and client pages
+app.use(cors({ origin: true, credentials: true })); // enable CORS for dev and client pages (allow credentials)
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -257,6 +257,31 @@ app.post('/auth/google', async (req, res) => {
   }
 });
 
+// Firebase session handling endpoints (uses firebase-admin)
+// POST { idToken: string }
+app.post('/auth/sessionLogin', async (req, res) => {
+  const idToken = req.body && req.body.idToken;
+  if (!idToken) return res.status(400).json({ error: 'idToken required' });
+  if (!admin || !admin.auth) return res.status(500).json({ error: 'Firebase Admin not initialized on server' });
+  try {
+    // Create a session cookie with a reasonable expiration (5 days)
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days in ms
+    const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
+    const secure = (process.env.NODE_ENV === 'production');
+    let cookieStr = `session=${sessionCookie}; Path=/; HttpOnly; SameSite=Lax`;
+    if (secure) cookieStr += '; Secure';
+    // Set cookie
+    res.setHeader('Set-Cookie', cookieStr);
+
+    // Optionally return decoded token info for client convenience
+    const decoded = await admin.auth().verifySessionCookie(sessionCookie, true);
+    return res.json({ success: true, decoded });
+  } catch (err) {
+    console.error('sessionLogin error', err);
+    return res.status(401).json({ error: err.message || 'Failed to create session cookie' });
+  }
+});
+
 // Firebase token verification endpoint (uses firebase-admin)
 // POST { idToken: string }
 app.post('/auth/verify-firebase-token', async (req, res) => {
@@ -272,27 +297,132 @@ app.post('/auth/verify-firebase-token', async (req, res) => {
   }
 });
 
-// Get current user from session cookie
+// Get current user from session cookie (supports legacy server sessions and Firebase session cookies)
 app.get('/auth/me', async (req, res) => {
   try {
     const cookies = parseCookies(req);
     const token = cookies.session;
     if (!token) return res.json({ user: null });
+
+    // First try our custom server-side session tokens
     const user = await getUserFromSessionToken(token);
-    if (!user) return res.json({ user: null });
-    return res.json({ user: { id: user.id, name: user.name, email: user.email, picture: user.picture } });
+    if (user) return res.json({ user: { id: user.id, name: user.name, email: user.email, picture: user.picture } });
+
+    // If not found, and Firebase Admin is initialized, try verify as a Firebase session cookie
+    if (admin && admin.auth) {
+      try {
+        const decoded = await admin.auth().verifySessionCookie(token, true);
+        // Use decoded.uid to fetch the user record from Firebase
+        const fbUser = await admin.auth().getUser(decoded.uid);
+        const profile = { id: fbUser.uid, name: fbUser.displayName || '', email: fbUser.email || '', picture: (fbUser.photoURL || '') };
+        return res.json({ user: profile });
+      } catch (e) {
+        // Not a valid Firebase session cookie
+      }
+    }
+
+    return res.json({ user: null });
   } catch (e) { return res.json({ user: null }); }
 });
 
-// Logout: clear session cookie and remove session
+// Helper: determine authenticated user for protected endpoints. Returns { id, name, email, picture } or null
+async function getAuthenticatedUserFromRequest(req) {
+  try {
+    const cookies = parseCookies(req);
+    const token = cookies.session;
+    if (!token) return null;
+
+    // try server-side session
+    const user = await getUserFromSessionToken(token);
+    if (user) return { id: user.id, name: user.name, email: user.email, picture: user.picture };
+
+    // try Firebase session cookie
+    if (admin && admin.auth) {
+      try {
+        const decoded = await admin.auth().verifySessionCookie(token, true);
+        const fbUser = await admin.auth().getUser(decoded.uid);
+        return { id: fbUser.uid, name: fbUser.displayName || '', email: fbUser.email || '', picture: fbUser.photoURL || '' };
+      } catch (e) { /* not a firebase session cookie */ }
+    }
+
+    return null;
+  } catch (e) { return null; }
+}
+
+// Orders persistence endpoints (per-user storage in orders.json)
+app.get('/orders', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    const orders = await readJsonFile('orders.json', []);
+    const my = (orders || []).filter(o => o.userEmail === user.email || o.userId === user.id);
+    return res.json({ success: true, orders: my });
+  } catch (e) { console.error('GET /orders error', e); return res.status(500).json({ error: 'Server error' }); }
+});
+
+app.get('/orders/:orderId', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    const orderId = req.params.orderId;
+    const orders = await readJsonFile('orders.json', []);
+    const found = (orders || []).find(o => (o.orderId === orderId || o.payment_reference === orderId) && (o.userEmail === user.email || o.userId === user.id));
+    if (!found) return res.status(404).json({ error: 'Not found' });
+    return res.json({ success: true, order: found });
+  } catch (e) { console.error('GET /orders/:orderId error', e); return res.status(500).json({ error: 'Server error' }); }
+});
+
+app.post('/orders', async (req, res) => {
+  try {
+    const user = await getAuthenticatedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    const order = req.body && req.body.order;
+    if (!order || typeof order !== 'object') return res.status(400).json({ error: 'order object required' });
+
+    const orders = await readJsonFile('orders.json', []);
+    // Normalize order fields
+    const out = Object.assign({}, order);
+    out.userEmail = user.email;
+    out.userId = user.id;
+    out.timestamp = out.timestamp || new Date().toISOString();
+    out.orderId = out.orderId || out.payment_reference || ('o_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+
+    // Avoid duplicates: if orderId exists, update it
+    const existsIndex = orders.findIndex(o => o.orderId === out.orderId || (out.payment_reference && o.payment_reference === out.payment_reference));
+    if (existsIndex !== -1) {
+      orders[existsIndex] = Object.assign({}, orders[existsIndex], out);
+    } else {
+      orders.push(out);
+    }
+
+    await writeJsonFile('orders.json', orders);
+    return res.json({ success: true, order: out });
+  } catch (e) { console.error('POST /orders error', e); return res.status(500).json({ error: 'Server error' }); }
+});
+
+// Logout: clear session cookie and remove session; also attempt to revoke Firebase refresh tokens when applicable
 app.post('/auth/logout', async (req, res) => {
   try {
     const cookies = parseCookies(req);
     const token = cookies.session;
     if (token) {
+      // Remove custom server session entry (if present)
       const sessions = await readJsonFile(SESSIONS_FILE, {});
       if (sessions[token]) { delete sessions[token]; await writeJsonFile(SESSIONS_FILE, sessions); }
+
+      // If Firebase Admin is available, try to decode token as a session cookie and revoke refresh tokens
+      if (admin && admin.auth) {
+        try {
+          const decoded = await admin.auth().verifySessionCookie(token, true);
+          if (decoded && decoded.uid) {
+            await admin.auth().revokeRefreshTokens(decoded.uid);
+          }
+        } catch (e) { /* ignore if not a firebase session cookie */ }
+      }
     }
+
     // Clear cookie
     res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax');
     return res.json({ success: true });

@@ -13,6 +13,13 @@ function initializeUserSession() {
   if (currentUser && accountLink) {
     // User is logged in
     accountLink.innerHTML = `<b>👤 ${currentUser.name.split(' ')[0]}</b>`;
+
+    // Sync any server-side orders for this user to local storage so receipts follow the account across devices
+    try {
+      if (window.syncOrdersFromServer) {
+        window.syncOrdersFromServer(currentUser).catch(e => { console.warn('syncOrdersFromServer failed', e); });
+      }
+    } catch (e) { /* ignore */ }
     
     // Header account (mobile icon): show check badge only if this is a successful login (loginTime) and on mobile
     setHeaderAccountLoggedIn(!!(currentUser && currentUser.loginTime), currentUser.name);
@@ -89,24 +96,50 @@ function initializeUserSession() {
   if (accountLink && dropdownMenu) {
     accountLink.addEventListener('click', (e) => {
       e.preventDefault();
-      // If user is logged in, logout immediately; otherwise toggle dropdown
-      if (currentUser) {
-        logoutBtn.click();
-      } else {
-        dropdownMenu.classList.toggle('show');
-      }
+      const opened = dropdownMenu.classList.toggle('show');
+      accountLink.setAttribute('aria-expanded', opened ? 'true' : 'false');
     });
     
     // Setup logout button
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', (e) => {
+      logoutBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        showNotification(`Logged out successfully. See you soon!`, 'success');
-        setTimeout(() => {
+        try {
+          // If admin page provided a firebase sign-out helper (preferred)
+          if (window.signOutFirebase) {
+            try { await window.signOutFirebase(); } catch (err) { console.warn('window.signOutFirebase failed', err); }
+          } else if (window.firebase && firebase.auth && typeof firebase.auth === 'function') {
+            // Fallback: use firebase client SDK signOut when available
+            try { await firebase.auth().signOut(); } catch (err) { console.warn('firebase.auth().signOut failed', err); }
+          }
+
+          // Google Identity Services: disable auto-select to prevent automatic re-login
+          if (window.google && google.accounts && google.accounts.id && google.accounts.id.disableAutoSelect) {
+            try { google.accounts.id.disableAutoSelect(); } catch (err) { console.warn('google.accounts.id.disableAutoSelect failed', err); }
+          }
+
+          // Call server-side logout to clear session cookie (if any)
+          try { await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }); } catch (err) { console.warn('server logout failed', err); }
+
+        } catch (err) {
+          console.warn('Logout flow encountered an error', err);
+        } finally {
+          // Clear client state and update UI
           sessionStorage.removeItem('currentUser');
+          try {
+            // Notify other tabs/windows about logout and clear any local copy
+            localStorage.setItem('currentUser', 'null');
+            localStorage.setItem('logout', String(Date.now()));
+          } catch (e) { /* ignore storage errors in some browsers */ }
+
+          // Close dropdown and update header
+          dropdownMenu.classList.remove('show');
           setHeaderAccountLoggedIn(false);
-          window.location.href = 'admin.html';
-        }, 300);
+          showNotification('Logged out successfully. See you soon!', 'success');
+
+          // Redirect to the storefront (logged-out view)
+          setTimeout(() => { window.location.href = 'index.html'; }, 300);
+        }
       });
     }
     
@@ -114,6 +147,8 @@ function initializeUserSession() {
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.account-dropdown')) {
         dropdownMenu.classList.remove('show');
+        const accountLink = document.querySelector('.account-link');
+        if (accountLink) accountLink.setAttribute('aria-expanded', 'false');
       }
     });
 
@@ -146,7 +181,9 @@ function setHeaderAccountLoggedIn(isLoggedIn, userName) {
 
 // Listen to storage events (other tabs) to update the UI when login state changes
 window.addEventListener('storage', (e) => {
-  if (e.key === 'currentUser') {
+  if (e.key === 'currentUser' || e.key === 'logout') {
+    // When another tab logs out or updates currentUser, refresh session state
+    try { sessionStorage.removeItem('currentUser'); } catch (err) { /* ignore */ }
     initializeUserSession();
   }
 });
@@ -178,10 +215,12 @@ function createHeaderAccountNode() {
     try {
       if (e) e.preventDefault();
       const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-      const logoutBtn = document.querySelector('.dropdown-logout');
-      if (currentUser && logoutBtn) {
-        // Trigger same logout flow as desktop
-        logoutBtn.click();
+      const dropdownMenu = document.querySelector('.dropdown-menu');
+      const accountLink = document.querySelector('.account-link');
+      if (currentUser && dropdownMenu) {
+        // Toggle dropdown to show logout option on mobile
+        const opened = dropdownMenu.classList.toggle('show');
+        if (accountLink) accountLink.setAttribute('aria-expanded', opened ? 'true' : 'false');
         return;
       }
 
@@ -619,11 +658,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Legacy global firebase fallback (if present)
         if (window.firebase && firebase.auth) {
           const provider = new firebase.auth.GoogleAuthProvider();
-          firebase.auth().signInWithPopup(provider).then(result => {
-            const user = result.user;
-            sessionStorage.setItem('currentUser', JSON.stringify({ id: user.uid, name: user.displayName, email: user.email }));
-            showNotification('Signed in successfully (Google)', 'success');
-            setTimeout(() => { window.location.href = 'index.html?login=success'; }, 600);
+          firebase.auth().signInWithPopup(provider).then(async (result) => {
+            try {
+              const user = result.user;
+              // Exchange idToken for server-side session cookie when possible
+              try {
+                const idToken = await user.getIdToken();
+                await fetch('/auth/sessionLogin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ idToken }), credentials: 'include' });
+              } catch (e) { console.warn('Failed to create server session cookie after firebase popup sign-in', e); }
+
+              sessionStorage.setItem('currentUser', JSON.stringify({ id: user.uid, name: user.displayName, email: user.email }));
+              showNotification('Signed in successfully (Google)', 'success');
+              setTimeout(() => { window.location.href = 'index.html?login=success'; }, 600);
+            } catch (err) {
+              console.error('Google sign-in (legacy) error', err);
+              showNotification(err && err.message ? err.message : 'Google sign-in failed', 'error');
+            }
           }).catch(err => {
             console.error('Google sign-in (legacy) error', err);
             showNotification(err && err.message ? err.message : 'Google sign-in failed', 'error');
@@ -878,12 +928,17 @@ function renderReceipts() {
   }
 
   const currentUserId = currentUserData.email; // Use email as unique userId
-  const paid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
-  const cod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+  const paid = JSON.parse(localStorage.getItem(`paid_orders_${currentUserId}`) || '[]');
+  const cod = JSON.parse(localStorage.getItem(`cash_orders_${currentUserId}`) || '[]');
 
-  // Filter by current user only
-  const userPaid = paid.filter(o => o.userId === currentUserId);
-  const userCod = cod.filter(o => o.userId === currentUserId);
+  // Also include legacy global arrays filtered by userId for backward compatibility
+  const globalPaid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+  const globalCod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+  const migratedPaid = (globalPaid || []).filter(o => o.userId === currentUserId);
+  const migratedCod = (globalCod || []).filter(o => o.userId === currentUserId);
+
+  const userPaid = [...paid, ...migratedPaid];
+  const userCod = [...cod, ...migratedCod]; 
 
   const all = [
     ...userPaid.map(o => ({ ...o, _type: 'paid' })),
@@ -1004,11 +1059,48 @@ function renderReceipts() {
  * (Kept minimal - still available but not used for inline expansion)
  */
 function viewReceipt(orderId, typeHint) {
-  const paid = JSON.parse(localStorage.getItem('paid_orders')) || [];
-  const cod = JSON.parse(localStorage.getItem('cash_orders')) || [];
-  const order = paid.find(o => o.orderId === orderId) || cod.find(o => o.orderId === orderId);
+  const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+  const currentUserId = currentUserData ? (currentUserData.email || currentUserData.id) : null;
+  const paid = currentUserId ? JSON.parse(localStorage.getItem(`paid_orders_${currentUserId}`) || '[]') : JSON.parse(localStorage.getItem('paid_orders') || '[]');
+  const cod = currentUserId ? JSON.parse(localStorage.getItem(`cash_orders_${currentUserId}`) || '[]') : JSON.parse(localStorage.getItem('cash_orders') || '[]');
+
+  // Try user-scoped orders first (be tolerant about types and alternate id fields)
+  function matchOrder(o, id) {
+    if (!o) return false;
+    const needle = String(id);
+    if (o.orderId && String(o.orderId) === needle) return true;
+    if (o.payment_reference && String(o.payment_reference) === needle) return true;
+    if (o.id && String(o.id) === needle) return true;
+    return false;
+  }
+
+  let order = paid.find(o => matchOrder(o, orderId)) || cod.find(o => matchOrder(o, orderId));
+
+  // Fallback to global arrays (for older entries) and then scan per-user keys when needed
   if (!order) {
-    alert('Receipt not found.');
+    const paidGlobal = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+    const codGlobal = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+    order = paidGlobal.find(o => matchOrder(o, orderId)) || codGlobal.find(o => matchOrder(o, orderId));
+  }
+
+  if (!order) {
+    // Scan all paid_/cash_ localStorage keys (covers per-user storages when current session is not available)
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (!/^paid_orders(_.*)?$/.test(key) && !/^cash_orders(_.*)?$/.test(key)) continue;
+        try {
+          const arr = JSON.parse(localStorage.getItem(key) || '[]');
+          const found = arr.find(o => matchOrder(o, orderId));
+          if (found) { order = found; break; }
+        } catch (e) { /* ignore */ }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  if (!order) {
+    alert('Receipt not found. Try logging in and checking your receipts/notifications or open this link from the notifications dropdown.');
     return;
   }
 
@@ -1095,12 +1187,29 @@ function formatDateTime12(input) {
 // Helpers to persist receipts locally
 function savePaidOrder(order) {
   try {
-    const paidOrders = JSON.parse(localStorage.getItem('paid_orders') || '[]');
-    paidOrders.push(order);
-    localStorage.setItem('paid_orders', JSON.stringify(paidOrders));
+    const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    const uid = order.userId || (currentUserData ? (currentUserData.email || currentUserData.id) : null);
+    const key = uid ? `paid_orders_${uid}` : 'paid_orders';
+    const paidOrders = JSON.parse(localStorage.getItem(key) || '[]');
+
+    // Prevent duplicates
+    if (!paidOrders.find(o => (o.orderId && o.orderId === order.orderId) || (o.payment_reference && o.payment_reference === order.payment_reference))) {
+      paidOrders.unshift(order);
+      localStorage.setItem(key, JSON.stringify(paidOrders));
+    }
 
     // Create a receipt notification for the user (so it appears in the dropdown)
     try { addReceiptNotification(order, 'paid'); } catch (e) { console.error('Failed to create receipt notification', e); }
+
+    // If user is logged in, persist order to server so it follows the account
+    (async function persistOrderServerSide() {
+      try {
+        if (!uid) return; // anonymous: skip
+        const resp = await fetch('/orders', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+        const body = await resp.json().catch(() => null);
+        if (!resp.ok) console.warn('Server failed to persist paid order', body);
+      } catch (e) { console.warn('Failed to persist paid order to server', e); }
+    })();
 
   } catch (e) {
     console.error('Error saving paid order locally', e);
@@ -1109,17 +1218,85 @@ function savePaidOrder(order) {
 
 function saveCODOrder(order) {
   try {
-    const codOrders = JSON.parse(localStorage.getItem('cash_orders') || '[]');
-    codOrders.push(order);
-    localStorage.setItem('cash_orders', JSON.stringify(codOrders));
+    const currentUserData = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+    const uid = order.userId || (currentUserData ? (currentUserData.email || currentUserData.id) : null);
+    const key = uid ? `cash_orders_${uid}` : 'cash_orders';
+    const codOrders = JSON.parse(localStorage.getItem(key) || '[]');
+
+    // Prevent duplicates
+    if (!codOrders.find(o => (o.orderId && o.orderId === order.orderId) || (o.payment_reference && o.payment_reference === order.payment_reference))) {
+      codOrders.unshift(order);
+      localStorage.setItem(key, JSON.stringify(codOrders));
+    }
 
     // Add a receipt/confirmation notification for COD orders as well
     try { addReceiptNotification(order, 'cod'); } catch (e) { console.error('Failed to create COD receipt notification', e); }
+
+    // Persist to server when possible
+    (async function persistOrderServerSide() {
+      try {
+        if (!uid) return;
+        const resp = await fetch('/orders', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+        const body = await resp.json().catch(() => null);
+        if (!resp.ok) console.warn('Server failed to persist COD order', body);
+      } catch (e) { console.warn('Failed to persist COD order to server', e); }
+    })();
 
   } catch (e) {
     console.error('Error saving COD order locally', e);
   }
 }
+
+// Sync server-side orders for current user into localStorage. Also uploads anonymous global orders that lack userEmail when the user is authenticated.
+window.syncOrdersFromServer = async function(currentUser) {
+  try {
+    if (!currentUser || !currentUser.email) return;
+    const email = currentUser.email;
+    // Fetch server orders for this user
+    const res = await fetch('/orders', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json().catch(() => null);
+    if (!data || !Array.isArray(data.orders)) return;
+
+    const paidKey = `paid_orders_${email}`;
+    const codKey = `cash_orders_${email}`;
+    const paid = JSON.parse(localStorage.getItem(paidKey) || '[]');
+    const cod = JSON.parse(localStorage.getItem(codKey) || '[]');
+
+    // merge server orders into local storage (avoid duplicates)
+    data.orders.forEach(o => {
+      if (o._type === 'paid' || o.payment_method || (o._type && o._type === 'paid')) {
+        if (!paid.find(x => (x.orderId && x.orderId === o.orderId) || (o.payment_reference && x.payment_reference === o.payment_reference))) paid.unshift(o);
+      } else {
+        if (!cod.find(x => (x.orderId && x.orderId === o.orderId) || (o.payment_reference && x.payment_reference === o.payment_reference))) cod.unshift(o);
+      }
+    });
+
+    localStorage.setItem(paidKey, JSON.stringify(paid));
+    localStorage.setItem(codKey, JSON.stringify(cod));
+
+    // Also, upload any anonymous global orders (no userEmail) to server so they become tied to this account
+    try {
+      const anonPaid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+      const anonCod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+      const combined = [...(anonPaid || []), ...(anonCod || [])];
+      for (const ord of combined) {
+        if (!ord) continue;
+        if (ord.userEmail || ord.userId) continue; // already tied
+        // Post to server (server will assign userEmail)
+        try {
+          await fetch('/orders', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order: ord }) });
+        } catch (e) { /* ignore */ }
+      }
+      // Optionally clear anonymous lists (we keep them for safety)
+    } catch (e) { /* ignore */ }
+
+    // Update UI badges and receipts view
+    try { updateCustomerNotificationsBadge(); } catch (e) {}
+    try { renderReceipts(); } catch (e) {}
+
+  } catch (e) { console.warn('syncOrdersFromServer error', e); }
+};
 
 // Add a helper to create a receipt notification for a user so it appears in their notifications dropdown
 function addReceiptNotification(order, kind = 'paid') {
@@ -1288,7 +1465,7 @@ try {
 // Prevent initial auto-scroll to anchors on page load and ensure receipts render
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // If the page was opened with a hash (e.g., /index.html#products), browsers typically jump to it.
   // Reset scroll to top immediately and remove the hash so the page doesn't auto-scroll.
   if (location.hash) {
@@ -1307,6 +1484,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (e) { /* ignore */ }
 
+  // After session init, try syncing server-side orders (if authenticated), then render receipts
+  try {
+    if (typeof window.syncOrdersFromServer === 'function') {
+      await window.syncOrdersFromServer(JSON.parse(sessionStorage.getItem('currentUser') || 'null'));
+    }
+  } catch (e) { /* ignore sync errors */ }
   renderReceipts();
 
   // On load, restore any pending delivery payment from previous session
@@ -3667,6 +3850,13 @@ if (deliveryForm) {
             const arrangementText = (pd.delivery_type === 'pickup') ? 'pickup arrangements' : 'delivery arrangements';
             showDeliveryStatus(`Order confirmed! Your order ID is ${pd.orderId}. We will contact you at ${phone} for ${arrangementText}.`, 'success');
 
+            // Show a prominent centered alert depending on delivery type
+            if (pd.delivery_type === 'pickup') {
+                showCenterAlert('Your Pickup is Ready!');
+            } else {
+                showCenterAlert('Your Order Is On The Way.');
+            }
+
             // Disable Confirm and clear payment snapshot
             if (deliverySubmitBtn) { deliverySubmitBtn.disabled = true; deliverySubmitBtn.textContent = 'Confirm Order'; deliverySubmitBtn.classList.remove('glow'); }
             deliveryPaymentConfirmed = false;
@@ -3694,6 +3884,109 @@ function showDeliveryStatus(message, type) {
             deliveryStatus.style.display = 'none';
         }, 5000);
     }
+}
+
+// Show a centered, animated alert for important messages (non-blocking)
+function showCenterAlert(message, duration = 2800) {
+    try {
+        // create container if not present
+        let overlay = document.querySelector('.center-alert-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'center-alert-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        // ensure confetti canvas exists and fire confetti (respect reduced motion)
+        if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            try { showConfetti(); } catch (e) { /* ignore */ }
+        }
+
+        // remove any existing alert immediately
+        const existing = overlay.querySelector('.center-alert');
+        if (existing) {
+            existing.remove();
+        }
+
+        const alert = document.createElement('div');
+        alert.className = 'center-alert';
+        alert.setAttribute('role', 'status');
+        alert.innerHTML = `<span class="check" aria-hidden="true">✓</span><span class="message">${message}</span>`;
+        overlay.appendChild(alert);
+
+        // animate in
+        requestAnimationFrame(() => {
+            alert.classList.add('show');
+        });
+
+        // remove after duration
+        setTimeout(() => {
+            alert.classList.remove('show');
+            alert.classList.add('hide');
+            // cleanup when animation finishes
+            setTimeout(() => { try { alert.remove(); } catch (e){} }, 320);
+        }, duration);
+    } catch (e) { console.warn('showCenterAlert failed', e); }
+}
+
+// Lightweight confetti implementation using canvas
+function showConfetti({ count = 40, spread = 60, duration = 1400 } = {}) {
+    try {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        let canvas = document.querySelector('.confetti-canvas');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.className = 'confetti-canvas';
+            document.body.appendChild(canvas);
+        }
+        const ctx = canvas.getContext('2d');
+        const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+        resize();
+        window.addEventListener('resize', resize);
+
+        const colors = ['#FF6B6B','#FFD54A','#34D399','#60A5FA','#A78BFA','#FB7185'];
+        const particles = [];
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: canvas.width / 2 + (Math.random() - 0.5) * spread,
+                y: canvas.height / 2 + (Math.random() - 0.5) * 20,
+                w: 6 + Math.random() * 8,
+                h: 6 + Math.random() * 8,
+                vx: (Math.random() - 0.5) * 6,
+                vy: -6 - Math.random() * 6,
+                rot: Math.random() * Math.PI,
+                vrot: (Math.random() - 0.5) * 0.3,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                opacity: 1
+            });
+        }
+
+        let start = performance.now();
+        function draw(now) {
+            const t = now - start;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (const p of particles) {
+                // physics
+                p.vy += 0.25; // gravity
+                p.x += p.vx;
+                p.y += p.vy;
+                p.rot += p.vrot;
+                p.opacity -= 0.006;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.opacity);
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+                ctx.restore();
+            }
+            if (t < duration) requestAnimationFrame(draw);
+            else {
+                try { canvas.remove(); window.removeEventListener('resize', resize); } catch (e) {}
+            }
+        }
+        requestAnimationFrame(draw);
+    } catch (e) { console.warn('showConfetti failed', e); }
 }
 
 // Update the Pay Now button label inside the delivery modal based on mode (delivery | pickup)

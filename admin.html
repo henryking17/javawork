@@ -183,6 +183,13 @@
         // store extra profile locally (phone)
         try { localStorage.setItem('firebase_profile_' + user.uid, JSON.stringify({ name: name || user.displayName || '', phone: phone || '' })); } catch (e) {}
         const profile = { id: user.uid, name: name || user.displayName || '', email: user.email, phone: phone || '' };
+
+        // Exchange idToken for server-side session cookie
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/auth/sessionLogin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ idToken }), credentials: 'include' });
+        } catch (e) { console.warn('Failed to create server session cookie after signup', e); }
+
         sessionStorage.setItem('currentUser', JSON.stringify(profile));
         return { success: true, user: profile };
       } catch (err) {
@@ -196,6 +203,13 @@
         const user = cred.user;
         const stored = JSON.parse(localStorage.getItem('firebase_profile_' + user.uid) || '{}');
         const profile = { id: user.uid, name: user.displayName || stored.name || '', email: user.email, phone: stored.phone || '' };
+
+        // Exchange idToken for server-side session cookie
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/auth/sessionLogin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ idToken }), credentials: 'include' });
+        } catch (e) { console.warn('Failed to create server session cookie after sign-in', e); }
+
         sessionStorage.setItem('currentUser', JSON.stringify(profile));
         return { success: true, user: profile };
       } catch (err) {
@@ -208,6 +222,13 @@
         const res = await signInWithPopup(auth, provider);
         const user = res.user;
         const profile = { id: user.uid, name: user.displayName || '', email: user.email, phone: '' };
+
+        // Exchange idToken for server-side session cookie
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/auth/sessionLogin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ idToken }), credentials: 'include' });
+        } catch (e) { console.warn('Failed to create server session cookie after Google sign-in', e); }
+
         sessionStorage.setItem('currentUser', JSON.stringify(profile));
         return { success: true, user: profile };
       } catch (err) {
@@ -219,6 +240,8 @@
       try {
         await signOut(auth);
       } catch (e) { /* ignore */ }
+      // Tell server to clear session cookie
+      try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); } catch (e) { console.warn('Server logout failed', e); }
       sessionStorage.removeItem('currentUser');
       return { success: true };
     };
@@ -799,8 +822,11 @@
           if (window.signOutFirebase) await window.signOutFirebase();
           else await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
         } catch (e) { /* ignore */ }
+        // Clear session and notify other tabs
         sessionStorage.removeItem('currentUser');
-        window.location.href = 'admin.html';
+        try { localStorage.setItem('currentUser', 'null'); localStorage.setItem('logout', String(Date.now())); } catch (err) {}
+        // Redirect to storefront (logged-out view)
+        window.location.href = 'index.html';
       }
     }
 

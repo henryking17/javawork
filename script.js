@@ -62,6 +62,11 @@ function initializeUserSession() {
     if (receiptsSection) {
       receiptsSection.style.display = '';
     }
+
+    // Populate account dropdown with recent orders for quick access
+    try {
+      renderAccountDropdown(dropdownMenu, currentUser);
+    } catch (e) { console.warn('renderAccountDropdown error', e); }
   } else {
     // User is not logged in
     accountLink.innerHTML = `<b>👤 Account</b>`;
@@ -82,6 +87,12 @@ function initializeUserSession() {
     if (receiptsSection) {
       receiptsSection.style.display = 'none';
     }
+
+    // Remove any previously rendered account orders from dropdown
+    try {
+      const orphan = dropdownMenu && dropdownMenu.querySelector('.orders-list, .account-orders-empty, .account-orders-footer');
+      if (orphan) orphan.remove();
+    } catch (e) { /* ignore */ }
   }
 
   // Update admin notifications badge
@@ -130,6 +141,8 @@ function initializeUserSession() {
             // Notify other tabs/windows about logout and clear any local copy
             localStorage.setItem('currentUser', 'null');
             localStorage.setItem('logout', String(Date.now()));
+            // Mark explicit logout so firebase won't rehydrate the user automatically
+            localStorage.setItem('user-logged-out', '1');
           } catch (e) { /* ignore storage errors in some browsers */ }
 
           // Close dropdown and update header
@@ -165,19 +178,21 @@ function setHeaderAccountLoggedIn(isLoggedIn, userName) {
   const badge = headerAccount.querySelector('.account-badge');
   const isMobile = (window.innerWidth || document.documentElement.clientWidth) < 769;
 
-  // Only show the green check on mobile and when login is a confirmed successful login (isLoggedIn === true)
-  if (isLoggedIn && isMobile) {
-    headerAccount.classList.add('logged-in');
-    headerAccount.setAttribute('title', `Signed in as ${userName || 'User'}`);
-    headerAccount.setAttribute('aria-checked', 'true');
+  if (isMobile) {
+    headerAccount.classList.toggle('logged-in', !!isLoggedIn);
+    headerAccount.classList.toggle('logged-out', !isLoggedIn);
+    headerAccount.setAttribute('title', isLoggedIn ? `Signed in as ${userName || 'User'}` : 'Not signed in');
+    headerAccount.setAttribute('aria-checked', isLoggedIn ? 'true' : 'false');
     if (badge) { badge.setAttribute('aria-hidden', 'false'); }
   } else {
+    // On desktop we hide the mobile badge and clear state classes
     headerAccount.classList.remove('logged-in');
+    headerAccount.classList.remove('logged-out');
     headerAccount.setAttribute('title', 'Account');
     headerAccount.removeAttribute('aria-checked');
     if (badge) { badge.setAttribute('aria-hidden', 'true'); }
   }
-}
+} 
 
 // Listen to storage events (other tabs) to update the UI when login state changes
 window.addEventListener('storage', (e) => {
@@ -853,6 +868,46 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Reusable confirm dialog helper (returns a Promise<boolean>)
+function showConfirm({ title = '', text = '', confirmLabel = 'Yes', cancelLabel = 'Cancel' } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+      <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+        ${title ? `<div class="confirm-title" id="confirm-title">${escapeHtml(title)}</div>` : ''}
+        <div class="confirm-text" id="confirm-text">${escapeHtml(text)}</div>
+        <div class="confirm-actions">
+          <button type="button" class="btn ghost btn-cancel">${escapeHtml(cancelLabel)}</button>
+          <button type="button" class="btn btn-confirm">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    // animate in
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+
+    const cancelBtn = overlay.querySelector('.btn-cancel');
+    const confirmBtn = overlay.querySelector('.btn-confirm');
+
+    function cleanup(result) {
+      overlay.classList.remove('visible');
+      setTimeout(() => { try { overlay.remove(); } catch(e) {} }, 240);
+      window.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(e) { if (e.key === 'Escape') cleanup(false); }
+
+    cancelBtn.addEventListener('click', () => cleanup(false));
+    confirmBtn.addEventListener('click', () => cleanup(true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(false); });
+    window.addEventListener('keydown', onKey);
+
+    // focus for accessibility
+    (confirmBtn || cancelBtn).focus();
+  });
+} 
+
 // --- Receipts: collapsible inline view + open in new tab ---
 // Replace the existing renderReceipts(), viewReceipt(), and printReceipt() functions
 // with the code below (they integrate with the same localStorage keys used elsewhere).
@@ -1294,6 +1349,8 @@ window.syncOrdersFromServer = async function(currentUser) {
     // Update UI badges and receipts view
     try { updateCustomerNotificationsBadge(); } catch (e) {}
     try { renderReceipts(); } catch (e) {}
+    try { renderAccountDropdown(document.querySelector('.dropdown-menu'), currentUser); } catch (e) {}
+    try { renderMyOrdersInHamburger(document.getElementById('main-nav'), currentUser); } catch (e) {}
 
   } catch (e) { console.warn('syncOrdersFromServer error', e); }
 };
@@ -1333,6 +1390,200 @@ function addReceiptNotification(order, kind = 'paid') {
   }
 }
 
+// Return recent orders (paid/cod) for the current user. Limit defaults to 3
+function getOrdersForCurrentUser(currentUser, limit = 3) {
+  try {
+    if (!currentUser) return [];
+    const uid = currentUser.email || currentUser.id || currentUser.uid || currentUser.userId;
+    let paid = [];
+    let cod = [];
+    try { if (uid) { paid = JSON.parse(localStorage.getItem(`paid_orders_${uid}`) || '[]'); cod = JSON.parse(localStorage.getItem(`cash_orders_${uid}`) || '[]'); } } catch (e) {}
+    // include migrated global arrays filtered by user id/email
+    const globalPaid = JSON.parse(localStorage.getItem('paid_orders') || '[]');
+    const globalCod = JSON.parse(localStorage.getItem('cash_orders') || '[]');
+    const migratedPaid = (globalPaid || []).filter(o => (o.userId === uid || o.email === uid || o.userEmail === uid));
+    const migratedCod = (globalCod || []).filter(o => (o.userId === uid || o.email === uid || o.userEmail === uid));
+
+    const all = [
+      ...((paid||[]).map(o => ({...o, _type: 'paid'}))),
+      ...((cod||[]).map(o => ({...o, _type: 'cod'}))),
+      ...((migratedPaid||[]).map(o => ({...o, _type: 'paid'}))),
+      ...((migratedCod||[]).map(o => ({...o, _type: 'cod'})))
+    ];
+
+    all.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return all.slice(0, limit);
+  } catch (e) { return []; }
+}
+
+// Render recent orders into the account dropdown (shows up after sign-in)
+function renderAccountDropdown(dropdownMenu, currentUser) {
+  if (!dropdownMenu) return;
+  // Remove any existing orders block
+  const existing = dropdownMenu.querySelector('.orders-list, .account-orders-empty, .account-orders-footer');
+  if (existing) existing.remove();
+
+  const container = document.createElement('div');
+  container.className = 'orders-list';
+  container.setAttribute('role', 'region');
+  container.setAttribute('aria-label', 'Recent orders');
+  const orders = getOrdersForCurrentUser(currentUser, 3);
+  if (orders.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'account-orders-empty';
+    empty.innerHTML = `
+      <div style="padding:12px; color:#6b7280; text-align:center;">You have no orders yet.</div>
+      <div style="padding:0 12px 12px;">
+        <a href="#featured-products" class="btn ghost continue-shopping-btn" role="button">Continue shopping</a>
+      </div>
+    `;
+    // wire continue shopping to close dropdown and scroll
+    empty.querySelector('.continue-shopping-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      dropdownMenu.classList.remove('show');
+      const accountLink = document.querySelector('.account-link'); if (accountLink) accountLink.setAttribute('aria-expanded', 'false');
+      const featured = document.getElementById('featured-products'); if (featured) featured.scrollIntoView({ behavior: 'smooth' }); else window.location.href = 'index.html#featured-products';
+    });
+    dropdownMenu.appendChild(empty);
+    return;
+  }
+
+  // Build a compact list of recent orders
+  const listEl = document.createElement('div');
+  listEl.style.padding = '10px';
+  orders.forEach(o => {
+    const row = document.createElement('div');
+    row.className = 'order-item';
+    row.innerHTML = `
+      <div style="flex:1; min-width:0;">
+        <div class="order-id" style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(o.orderId || o.payment_reference || 'Order')}</div>
+        <div class="order-meta" style="color:#6b7280; font-size:0.86rem;">${escapeHtml(formatDateTime12(o.timestamp))} • ${escapeHtml(o.total || '')}</div>
+      </div>
+      <div style="flex:none; margin-left:8px;">
+        <button class="btn" aria-label="View order ${escapeHtml(o.orderId || '')}">View</button>
+      </div>
+    `;
+    const btn = row.querySelector('button');
+    btn.addEventListener('click', () => { dropdownMenu.classList.remove('show'); const accountLink = document.querySelector('.account-link'); if (accountLink) accountLink.setAttribute('aria-expanded', 'false'); viewReceipt(o.orderId || o.payment_reference); });
+    listEl.appendChild(row);
+  });
+
+  container.appendChild(listEl);
+
+  const footer = document.createElement('div');
+  footer.className = 'account-orders-footer';
+  footer.style = 'padding:8px 10px; border-top:1px solid #f3f4f6;';
+  footer.innerHTML = `<a href="#receipts" class="view-all-orders" style="display:inline-block; font-weight:700;">View all orders</a>`;
+  footer.querySelector('.view-all-orders').addEventListener('click', (e) => {
+    e.preventDefault();
+    // Close the account dropdown
+    dropdownMenu.classList.remove('show');
+    const accountLink = document.querySelector('.account-link');
+    if (accountLink) accountLink.setAttribute('aria-expanded', 'false');
+
+    // Also close hamburger/mobile nav if open
+    try {
+      const hamburger = document.getElementById('hamburger');
+      const navUl = document.getElementById('main-nav');
+      if (navUl && navUl.classList.contains('show')) navUl.classList.remove('show');
+      if (hamburger) {
+        hamburger.classList.remove('active');
+        hamburger.setAttribute('aria-expanded', 'false');
+        try { hamburger.innerHTML = '☰'; hamburger.setAttribute('aria-label', 'Open menu'); hamburger.focus(); } catch(e) {}
+      }
+    } catch (e) { /* ignore */ }
+
+    // Navigate to receipts (allow UI to settle then scroll)
+    const target = document.getElementById('receipts');
+    if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth' }), 80);
+    else window.location.href = 'index.html#receipts';
+  });
+
+  dropdownMenu.appendChild(container);
+  dropdownMenu.appendChild(footer);
+}
+
+// Render a compact orders panel inside the mobile hamburger menu under a 'My Orders' button
+function renderMyOrdersInHamburger(navUl, currentUser) {
+  try {
+    if (!navUl) navUl = document.getElementById('main-nav');
+    if (!navUl) return;
+
+    // Remove existing mobile orders block
+    const existing = navUl.querySelector('.hamburger-orders-li');
+    if (existing) existing.remove();
+
+    const li = document.createElement('li');
+    li.className = 'hamburger-orders-li';
+
+    li.innerHTML = `
+      <button class="my-orders-toggle" aria-expanded="false" type="button" style="width:100%; text-align:left; padding:12px; border:none; background:transparent; font-weight:700;">My Orders</button>
+      <div class="hamburger-orders-panel" aria-hidden="true" style="display:none; padding:8px 12px;"></div>
+    `;
+
+    const panel = li.querySelector('.hamburger-orders-panel');
+    const btn = li.querySelector('.my-orders-toggle');
+
+    const orders = getOrdersForCurrentUser(currentUser, 6);
+    if (!orders || orders.length === 0) {
+      panel.innerHTML = `
+        <div class="account-orders-empty" style="padding:8px; color:#6b7280; text-align:left;">No orders yet.</div>
+        <div style="padding-top:8px;"><a href="#featured-products" class="btn ghost continue-shopping-btn">Continue shopping</a></div>
+      `;
+      const cs = panel.querySelector('.continue-shopping-btn');
+      if (cs) cs.addEventListener('click', (e) => {
+        e.preventDefault();
+        // close mobile nav if open
+        try { const hamburger = document.getElementById('hamburger'); const nav = document.getElementById('main-nav'); if (nav && nav.classList.contains('show')) nav.classList.remove('show'); if (hamburger) { hamburger.classList.remove('active'); hamburger.setAttribute('aria-expanded', 'false'); try{ hamburger.innerHTML='☰'; hamburger.focus(); }catch(e){} } } catch(e){}
+        const featured = document.getElementById('featured-products'); if (featured) featured.scrollIntoView({ behavior: 'smooth' }); else window.location.href = 'index.html#featured-products';
+      });
+    } else {
+      const list = document.createElement('div');
+      list.className = 'orders-list-mobile';
+      orders.forEach(o => {
+        const row = document.createElement('div');
+        row.className = 'order-item mobile';
+        row.style = 'display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f8fafc;';
+        row.innerHTML = `
+          <div style="min-width:0; margin-right:12px;">
+            <div style="font-weight:700; color:#b91c1c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(o.orderId || o.payment_reference || 'Order')}</div>
+            <div style="color:#6b7280; font-size:0.86rem; margin-top:6px;">${escapeHtml(formatDateTime12(o.timestamp))} • ${escapeHtml(o.total || '')}</div>
+          </div>
+          <div style="flex:none;">
+            <button class="btn" type="button">View</button>
+          </div>
+        `;
+        const btnView = row.querySelector('button');
+        btnView.addEventListener('click', () => {
+          // Close mobile nav and open receipt
+          try { const nav = document.getElementById('main-nav'); if (nav && nav.classList.contains('show')) nav.classList.remove('show'); const hamburger = document.getElementById('hamburger'); if (hamburger) { hamburger.classList.remove('active'); hamburger.setAttribute('aria-expanded','false'); try{ hamburger.innerHTML='☰'; hamburger.focus(); }catch(e){} } } catch(e){}
+          viewReceipt(o.orderId || o.payment_reference);
+        });
+        list.appendChild(row);
+      });
+      panel.appendChild(list);
+    }
+
+    // Toggle behavior
+    btn.addEventListener('click', () => {
+      const open = btn.getAttribute('aria-expanded') === 'true';
+      if (open) {
+        btn.setAttribute('aria-expanded','false'); panel.style.display = 'none'; panel.setAttribute('aria-hidden','true');
+      } else {
+        btn.setAttribute('aria-expanded','true'); panel.style.display = 'block'; panel.setAttribute('aria-hidden','false');
+      }
+    });
+
+    // Insert near the top (after mobile search)
+    const mobileSearch = navUl.querySelector('.mobile-search');
+    if (mobileSearch && mobileSearch.parentNode === navUl) {
+      navUl.insertBefore(li, mobileSearch.nextSibling);
+    } else {
+      navUl.insertBefore(li, navUl.firstChild);
+    }
+
+  } catch (e) { console.warn('renderMyOrdersInHamburger failed', e); }
+}
 // Add helper to post a price increase notification for a product (per-user localStorage)
 function addPriceIncreaseNotification(productName, oldPrice, newPrice, userId) {
   try {
@@ -2364,35 +2615,15 @@ document.addEventListener('DOMContentLoaded', function() {
           if (container) container.addEventListener('click', function(e) { if (e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'img') return; e.stopPropagation(); openImageModal(img.src); });
         }
 
-        // clicking clone opens product modal
+        // clicking clone navigates to the product page (full page view)
         clone.addEventListener('click', function(e) {
           if (e.target.classList.contains('add-now') || e.target.classList.contains('zoom-icon')) return;
           const title = this.querySelector('h3') ? this.querySelector('h3').textContent.trim() : '';
           const description = this.querySelector('p') ? this.querySelector('p').textContent.trim() : '';
           const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
 
-          document.getElementById('modal-title').textContent = title;
-          const details = getProductDetails(title || '');
-          document.getElementById('modal-image').src = details.image || imageSrc;
-          document.getElementById('modal-description').textContent = description || details.description || '';
-          const modalPriceEl = document.getElementById('modal-price');
-          if (modalPriceEl) modalPriceEl.textContent = details.priceStr || '';
-
-          // Show specs if available
-          const specsEl = document.getElementById('modal-specs');
-          if (specsEl) {
-            if (details.specs) {
-              specsEl.innerHTML = renderSpecsHtml(details.specs);
-              specsEl.style.display = 'block';
-            } else {
-              specsEl.innerHTML = '';
-              specsEl.style.display = 'none';
-            }
-          }
-
-          document.getElementById('product-details').style.display = 'block';
-          document.getElementById('modal-variants').style.display = 'none';
-          modal.style.display = 'block';
+          try { localStorage.setItem('selectedProduct', JSON.stringify({ key: title, title: title, description: description, image: imageSrc })); } catch (err) { /* ignore */ }
+          window.location.href = 'product.html?key=' + encodeURIComponent(title);
         });
 
         // add favorite star to clone if function exists
@@ -2404,7 +2635,18 @@ document.addEventListener('DOMContentLoaded', function() {
             starBtn.type = 'button';
             starBtn.textContent = favorites[title] ? '⭐' : '☆';
             starBtn.style.cssText = 'position:absolute; top:12px; right:12px; background:rgba(255,255,255,0.9); border:1px solid rgba(0,0,0,0.1); border-radius:50%; width:40px; height:40px; font-size:20px; cursor:pointer; z-index:10; display:flex; align-items:center; justify-content:center;';
-            starBtn.addEventListener('click', (ev) => { ev.stopPropagation(); toggleFavorite(title); });
+            starBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              toggleFavorite(title);
+              try { starBtn.classList.add('clicked'); } catch (e) {}
+              setTimeout(() => { try { starBtn.classList.remove('clicked'); } catch (e) {} }, 600);
+            });
+            starBtn.addEventListener('mouseenter', () => {
+              try { starBtn.style.background = 'rgba(255,193,7,0.3)'; starBtn.style.transform = 'scale(1.1)'; } catch (e) {}
+            });
+            starBtn.addEventListener('mouseleave', () => {
+              try { starBtn.style.background = 'rgba(255,255,255,0.9)'; starBtn.style.transform = 'scale(1)'; } catch (e) {}
+            });
             const imgContainer = clone.querySelector('.product-image');
             if (imgContainer) {
               imgContainer.style.position = 'relative';
@@ -2440,11 +2682,34 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.className = 'category-item';
       btn.type = 'button';
       btn.dataset.name = name;
-      btn.innerHTML = `<div class="icon">${icons[name] || '📁'}</div><div class="label">${name}</div>`;
+
+      // Try to use a representative product image for the tile (prefer Sumec image for generators)
+      let thumbHtml = '';
+      try {
+        let targetCard = (cards && cards.length) ? cards[0] : null;
+        // If this is the Power & Generators category, look specifically for a Sumec product to use as the thumbnail
+        if (name === 'Power & Generators' && cards && cards.length) {
+          const found = cards.find(c => {
+            const t = c.querySelector('h3') ? c.querySelector('h3').textContent : '';
+            return /Sumec\s*Firman|Sumec/i.test(t);
+          });
+          if (found) targetCard = found;
+        }
+        if (targetCard) {
+          const fimg = targetCard.querySelector('.product-image img');
+          if (fimg && fimg.src) thumbHtml = `<div class="category-thumb"><img src="${escapeHtml(fimg.src)}" alt="${escapeHtml(name)}"></div>`;
+        }
+      } catch (e) { /* ignore */ }
+
+      btn.innerHTML = `${thumbHtml || `<div class="icon">${icons[name] || '📁'}</div>`}<div class="label">${escapeHtml(name)}</div>`;
+      btn.classList.add('category-tile');
+      btn.setAttribute('aria-label', name);
 
       btn.addEventListener('click', () => renderCategory(cards, btn, true));
 
       barInner.appendChild(btn);
+      // entrance animation stagger
+      setTimeout(() => btn.classList.add('animate-in'), idx * 80);
     });
 
     // Make a global helper to open a category programmatically
@@ -2746,6 +3011,69 @@ function getProductDetails(key) {
     return { name: key, description: '', priceStr: '₦0', unit_price: 0, specs: null, image: '' };
 }
 
+// Returns an array of { key, data, score } for products most similar to currentKey
+function getRelatedProducts(currentKey, limit = 12) {
+    try {
+        if (!currentKey) return [];
+        const normalize = s => (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const stopWords = new Set(['the','and','for','with','inch','in','w','x','of','to','a','an','on','by','brand','model','series','set','new']);
+        const tok = s => normalize(s).split(/\s+/).filter(t => t && t.length > 1 && !stopWords.has(t));
+
+        const base = getProductDetails(currentKey) || {};
+        const baseTokens = new Set([
+            ...tok(currentKey),
+            ...tok(base.description || ''),
+            ...(base.specs ? Object.keys(base.specs).flatMap(k => tok(k)).concat(Object.values(base.specs).flatMap(v => tok(v))) : [])
+        ]);
+        const candidates = [];
+
+        for (const k in productCatalog) {
+            if (k === currentKey) continue;
+            const d = productCatalog[k] || {};
+            const candidateTokens = new Set([
+                ...tok(k),
+                ...tok(d.name || ''),
+                ...tok(d.description || ''),
+                ...(d.specs ? Object.keys(d.specs).flatMap(k2 => tok(k2)).concat(Object.values(d.specs).flatMap(v => tok(v))) : [])
+            ]);
+
+            // token overlap
+            let overlap = 0;
+            baseTokens.forEach(t => { if (candidateTokens.has(t)) overlap++; });
+
+            // price similarity boost
+            let priceBoost = 0;
+            try {
+                const bP = base.unit_price || 0;
+                const cP = d.unit_price || 0;
+                if (bP && cP) {
+                    const ratio = Math.abs(bP - cP) / Math.max(1, bP);
+                    if (ratio < 0.15) priceBoost = 1;
+                    else if (ratio < 0.4) priceBoost = 0.5;
+                }
+            } catch(e) {}
+
+            // brand/family boost: use first token of current key
+            const currFirst = normalize(currentKey).split(/\s+/)[0];
+            const brandBoost = candidateTokens.has(currFirst) ? 2 : 0;
+
+            // in-stock preference
+            const stockBoost = (typeof d.stock === 'number' && d.stock > 0) ? 0.25 : 0;
+
+            const score = overlap + priceBoost + brandBoost + stockBoost;
+            candidates.push({ key: k, data: d, score });
+        }
+
+        // sort and return top results; prefer positive-score candidates, otherwise fall back to any products other than the current
+        candidates.sort((a,b) => b.score - a.score);
+        const positives = candidates.filter(c => c.score > 0);
+        const chosen = (positives.length ? positives : candidates).slice(0, limit);
+        return chosen;
+    } catch (e) {
+        return [];
+    }
+} 
+
 // -------------------- Lightbox + Product-card UI --------------------
 const imageModal = document.getElementById('image-modal');
 const imageModalClose = document.getElementById('image-modal-close');
@@ -2830,43 +3158,11 @@ document.querySelectorAll('.product-card').forEach(card => {
         const description = this.querySelector('p') ? this.querySelector('p').textContent.trim() : '';
         const imageSrc = this.querySelector('img') ? this.querySelector('img').src : '';
 
-        document.getElementById('modal-title').textContent = title;
-        const details = getProductDetails(title || '');
-        document.getElementById('modal-image').src = details.image || imageSrc;
-        document.getElementById('modal-description').textContent = description || details.description || '';
-        const modalPriceEl = document.getElementById('modal-price');
-        if (modalPriceEl) modalPriceEl.textContent = details.priceStr || '';
-
-        // Reset view and show specs when available
-        document.getElementById('product-details').style.display = 'block';
-        const specsEl = document.getElementById('modal-specs');
-        if (specsEl) {
-          if (details.specs) {
-            specsEl.innerHTML = renderSpecsHtml(details.specs);
-            specsEl.style.display = 'block';
-          } else {
-            specsEl.innerHTML = '';
-            specsEl.style.display = 'none';
-          }
-        }
-        document.getElementById('modal-variants').style.display = 'none';
-        modal.style.display = 'block';
-        modal.setAttribute('aria-hidden', 'false');
-
-        // add "Add to Cart" inside modal if not present
-        if (!document.getElementById('modal-add-btn')) {
-            const btn = document.createElement('button');
-            btn.id = 'modal-add-btn';
-            btn.className = 'btn';
-            btn.textContent = 'Add to Cart';
-            btn.style.marginLeft = '8px';
-            btn.addEventListener('click', function() {
-                const titleNow = document.getElementById('modal-title').textContent;
-                if (titleNow) addToCart(titleNow);
-            });
-            const detailsDiv = document.getElementById('product-details');
-            if (detailsDiv) detailsDiv.appendChild(btn);
-        }
+        // Store selected product for the product page and navigate
+        try {
+            localStorage.setItem('selectedProduct', JSON.stringify({ key: title, title: title, description: description, image: imageSrc }));
+        } catch (e) { /* ignore */ }
+        window.location.href = 'product.html';
     });
 });
 
@@ -3089,6 +3385,26 @@ function addToCart(productKey) {
     } catch (e) { /* ignore */ }
 }
 
+// Add multiple units of a product to the cart in a single operation
+function addToCartWithQuantity(productKey, quantity) {
+    const key = (productKey || '').trim();
+    if (!key) return;
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    const details = getProductDetails(key);
+    const available = (typeof details.stock === 'number') ? details.stock : Infinity;
+    const current = cart[key] || 0;
+    if (current + qty > available) {
+        notifyError(`Only ${available} left in stock for ${key}.`);
+        return;
+    }
+    cart[key] = current + qty;
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartCount();
+    clearPendingDeliveryPaymentIfCartChanged();
+    showNotification(`${qty} × ${key} added to cart.`, 'success');
+    try { if (document.getElementById('cart-modal') && document.getElementById('cart-modal').style.display === 'block') showCart(); } catch (e) {}
+}
+
 function updateCartCount() {
     let totalItems = 0;
     for (const p in cart) totalItems += cart[p];
@@ -3190,6 +3506,7 @@ function showCart() {
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(255,193,7,0.2);
       ">CHECKOUT NOW</button>
+      <button id="clear-cart-btn-inline" class="btn ghost" style="margin-top:8px; width:100%;">Clear Cart</button>
     `;
     
     // Link the inline button to the hidden cart pay button's functionality
@@ -3202,6 +3519,16 @@ function showCart() {
         checkoutBtnInline.style.opacity = '0.6';
         checkoutBtnInline.style.cursor = 'not-allowed';
       }
+    }
+
+    // Wire clear cart button
+    const clearInline = checkoutSection.querySelector('#clear-cart-btn-inline');
+    if (clearInline) {
+      clearInline.addEventListener('click', () => {
+        showConfirm({ title: 'Clear cart', text: 'Are you sure you want to clear the cart? This will remove all items from your cart.' })
+          .then(confirmed => { if (confirmed) clearCart(); });
+      });
+      if (total <= 0) clearInline.style.display = 'none';
     }
     
     cartItems.appendChild(checkoutSection);
@@ -3271,8 +3598,9 @@ function showCart() {
     
     cartItems.appendChild(favoritesSection);
 
-    document.getElementById('cart-modal').style.display = 'block';
-}
+    const cartModalEl = document.getElementById('cart-modal');
+    if (cartModalEl) { cartModalEl.classList.add('backdrop-blur'); cartModalEl.style.display = 'block'; }
+} 
 
 function changeQuantity(productKey, delta) {
     const key = productKey;
@@ -3317,8 +3645,28 @@ function removeFromCart(productKey) {
     showCart();
 }
 
+// Clear entire cart safely
+function clearCart() {
+    cart = {};
+    try { localStorage.setItem('cart', JSON.stringify(cart)); } catch(e) {}
+    updateCartCount();
+    clearPendingDeliveryPaymentIfCartChanged();
+    showNotification('Cart cleared.', 'success');
+    showCart();
+}
+
 function closeCart() {
-    document.getElementById('cart-modal').style.display = 'none';
+    const cartModalEl = document.getElementById('cart-modal');
+    if (cartModalEl) { cartModalEl.style.display = 'none'; cartModalEl.classList.remove('backdrop-blur'); }
+    try {
+      const returnTo = localStorage.getItem('cartReturn');
+      if (returnTo) {
+        localStorage.removeItem('cartReturn');
+        if (returnTo !== location.href) {
+          window.location.href = returnTo;
+        }
+      }
+    } catch (e) { /* ignore */ }
 }
 
 // -------------------- Paystack checkout & Cash on Delivery (restored) --------------------
@@ -3728,6 +4076,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // If we are proceeding to payment, clear any preserved cart return marker so we don't bounce back
+    try { localStorage.removeItem('cartReturn'); } catch (e) {}
     // Close the cart modal
     closeCart();
 
@@ -4966,6 +5316,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (document.readyState === 'complete' || document.readyState === 'interactive') onReady();
   else document.addEventListener('DOMContentLoaded', onReady);
+
+// Support opening the cart when a page sets the 'openCart' flag (e.g., product page redirects back to shop)
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (localStorage.getItem('openCart')) {
+      localStorage.removeItem('openCart');
+      setTimeout(() => { try { if (typeof showCart === 'function') showCart(); } catch (e) { window.location.href = 'index.html'; } }, 80);
+    }
+  } catch (e) { /* ignore */ }
+});
 })();
 
 

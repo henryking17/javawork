@@ -233,7 +233,7 @@
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
         let inner = '';
-        for (const k in specs) inner += '<tr><td style="padding:6px;border-top:1px solid #eee; width:40%; font-weight:600;">'+k+'</td><td style="padding:6px;border-top:1px solid #eee;">'+specs[k]+'</td></tr>';
+        for (const k in specs) inner += '<tr><td style="padding:6px;border-top:1px solid #eee; width:40%; font-weight:600;">'+k+'</td><td style="padding:6px;border-top:1px solid #eee;"><span style="color:#22c55e; margin-right:8px;">✅</span>'+specs[k]+'</td></tr>';
         table.innerHTML = inner;
         document.getElementById('prod-specs').appendChild(table);
       }

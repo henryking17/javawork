@@ -106,6 +106,21 @@ function initializeUserSession() {
   // Setup dropdown menu toggle or direct logout
   if (accountLink && dropdownMenu) {
     accountLink.addEventListener('click', (e) => {
+      // Check if the click was on the receipt badge - if so, navigate to receipts
+      const badge = e.target.closest('.account-receipt-badge');
+      if (badge && badge.style.display !== 'none') {
+        // Badge is visible and clicked - navigate to receipts section
+        const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+        if (!currentUser) {
+          // User not logged in - show alert
+          showReceiptsAlert();
+        } else {
+          // User logged in - scroll to receipts section
+          document.getElementById('receipts').scrollIntoView({ behavior: 'smooth' });
+        }
+        return;
+      }
+
       e.preventDefault();
       const opened = dropdownMenu.classList.toggle('show');
       accountLink.setAttribute('aria-expanded', opened ? 'true' : 'false');
